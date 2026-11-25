@@ -1,0 +1,29 @@
+## Interface: 16001, 120100, 120105, 120000, 120001, 120005, 120007
+## Title: |cff0cd29fNibbelz|r Loot
+## Notes: Live Need/Greed/Pass overview for every group roll, roll history by day and dungeon, gold and AH value won, group stats, fair share and a loot battle. /nl, /rolls
+## Notes-deDE: Live-Übersicht über Bedarf/Gier/Passen bei jedem Gruppenwurf, Wurf-Historie nach Tag und Dungeon, gewonnenes Gold und AH-Wert, Gruppenstatistik, Fair Share und Loot Battle. /nl, /rolls
+## Author: Nibbelz
+## Version: 1.2.0
+## Category: Loot
+## Category-deDE: Beute
+## X-License: All Rights Reserved
+## X-Category: Loot
+## OptionalDeps: EllesmereUI, NaowhForever, NaowhForever_QoL, Auctionator, TradeSkillMaster, Auc-Advanced
+## SavedVariables: NibbelzLootDB
+## IconTexture: Interface\Icons\INV_Misc_Coin_01
+## AddonCompartmentFunc: NibbelzLoot_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: NibbelzLoot_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: NibbelzLoot_OnAddonCompartmentLeave
+
+Locale.lua
+Core.lua
+Style.lua
+LiveFrame.lua
+History.lua
+GroupStats.lua
+Loot.lua
+Share.lua
+Bosses.lua
+Battle.lua
+Minimap.lua
+Options.lua
