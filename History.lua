@@ -17,14 +17,14 @@ local TOP = 36
 local frame, tree, list, detail
 local tabDays, tabPlaces, tabRolls, tabStats
 local filterButtons = {}
-local midTitle, midSummary, search, statsChoice
+local midTitle, midSummary, search, statsChoice, statsMine
 
 local state = {
     mode = "days",                       -- days | places
     sel = { kind = "all" },              -- all | day | visit | place
     open = {},                           -- expanded tree rows
     tab = "rolls",                       -- rolls | stats
-    filter = "all",                      -- all | picked | won
+    filter = "all",                      -- all | won
     search = "",
     selRec = nil,                        -- record id shown on the right
 }
@@ -107,41 +107,60 @@ local function InScope(rec)
     return false
 end
 
-local function Passes(rec, q)
-    if state.filter == "picked" and not ns.Picked(rec.my) then return false end
-    if state.filter == "won" and not rec.mw then return false end
-    if q ~= "" then
-        if rec.n and lower(rec.n):find(q, 1, true) then return true end
-        for _, e in ipairs(rec.rolls or {}) do
-            if lower(e.n):find(q, 1, true) then return true end
-        end
-        return false
-    end
-    return true
+-- The search text, trimmed and lower case ("" = no search).
+local function Query()
+    return lower((state.search or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+-- A record passes the filter and the search. Returns the matched player's roll entry
+-- when the search found a player (so the row can show what they picked and rolled).
+local function Passes(rec, q)
+    if q == "" then
+        if state.filter == "won" and not rec.mw then return false end
+        return true
+    end
+    local hit
+    for _, e in ipairs(rec.rolls or {}) do
+        if e.n and lower(e.n):find(q, 1, true) then hit = e break end
+    end
+    if state.filter == "won" then
+        -- "Won" while searching a player: what that player won.
+        if hit then return hit.w == true, hit end
+        return rec.mw and rec.n and lower(rec.n):find(q, 1, true) ~= nil or false
+    end
+    if hit then return true, hit end
+    return rec.n and lower(rec.n):find(q, 1, true) ~= nil or false
+end
+
+-- scoped = the tree selection (for the stats), shown = the rows of the rolls tab.
+-- A search looks through the whole history, whatever is selected on the left.
 local function Collect()
-    local scoped, shown = {}, {}
-    local q = lower(state.search or "")
+    local scoped, shown, matches = {}, {}, {}
+    local q = Query()
     local rolls = ns.db.rolls
     for i = #rolls, 1, -1 do
         local rec = rolls[i]
-        if InScope(rec) then
-            scoped[#scoped + 1] = rec
-            if Passes(rec, q) then shown[#shown + 1] = rec end
+        local inScope = InScope(rec)
+        if inScope then scoped[#scoped + 1] = rec end
+        if inScope or q ~= "" then
+            local ok, hit = Passes(rec, q)
+            if ok then
+                shown[#shown + 1] = rec
+                matches[rec] = hit
+            end
         end
     end
-    return scoped, shown
+    return scoped, shown, matches
 end
 
-local function RollRows(shown)
+local function RollRows(shown, matches)
     local rows, lastV = {}, nil
     for _, rec in ipairs(shown) do
         if rec.v ~= lastV then
             lastV = rec.v
             rows[#rows + 1] = { kind = "hdr", v = ns.visitById[rec.v], h = 24 }
         end
-        rows[#rows + 1] = { kind = "item", rec = rec, h = 38 }
+        rows[#rows + 1] = { kind = "item", rec = rec, match = matches and matches[rec], h = 38 }
     end
     if #rows == 0 then
         rows[1] = { kind = "empty", h = 40, text = #ns.db.rolls == 0 and L["No rolls yet"] or L["Nothing matches"] }
@@ -175,7 +194,25 @@ local STATS = {
 }
 local function StatOn(key) return not ns.db.opts.hideStats[key] end
 
+-- "Only me": just the items you rolled on, and only you in "Most items won".
+local function Mine(rec)
+    if rec.mw or (rec.my and rec.my ~= S.NONE) then return true end
+    for _, e in ipairs(rec.rolls or {}) do
+        if e.me then return true end
+    end
+    return false
+end
+
 local function StatRows(scoped)
+    local onlyMe = ns.db.opts.statsMine
+    if onlyMe then
+        local mine = {}
+        for _, rec in ipairs(scoped) do
+            if Mine(rec) then mine[#mine + 1] = rec end
+        end
+        scoped = mine
+    end
+    local me = ns.MyName()
     local sum = ns.Sum(scoped)
     local money, moneyByPlace = 0, {}
     for _, v in ipairs(ns.db.visits) do
@@ -230,7 +267,7 @@ local function StatRows(scoped)
     local winners, wlist = {}, {}
     local showWinners = StatOn("winners")
     for _, rec in ipairs(scoped) do
-        if showWinners and rec.win then
+        if showWinners and rec.win and (not onlyMe or rec.mw or rec.win == me) then
             local w = winners[rec.win]
             if not w then
                 w = { name = rec.win, class = rec.wc, count = 0, gold = 0 }
@@ -401,15 +438,24 @@ local function ListFill(row, item)
         if rec.ap then
             row.sub:SetText("|cff9a9a9a" .. L["Everyone passed"] .. "|r")
         elseif rec.win then
-            row.sub:SetText(ns.ClassName(rec.win, rec.wc) .. " " .. St.StateMarkup(rec.ws, 11) .. " " .. (rec.wr or ""))
+            row.sub:SetText(L["Won by"] .. " " .. ns.ClassName(rec.win, rec.wc) .. " " .. St.StateMarkup(rec.ws, 11) .. " " .. (rec.wr or ""))
         else
             row.sub:SetText("|cff9a9a9a" .. L["Rolling..."] .. "|r")
         end
-        -- Right: your own pick and roll.
-        if rec.my and rec.my ~= S.NONE then
-            St.SetStateIcon(row.stateIcon, rec.my)
-            row.value:SetText(rec.mr or "")
-            if rec.mw then row.value:SetTextColor(St.Accent()) end
+        -- Right: the searched player's pick and roll, else your own.
+        local m = item.match
+        local s, r, w
+        if m then
+            s, r, w = m.s, m.r, m.w
+        else
+            s, r, w = rec.my, rec.mr, rec.mw
+        end
+        if s and s ~= S.NONE then
+            St.SetStateIcon(row.stateIcon, s)
+            row.value:SetText(r or "")
+            if w then row.value:SetTextColor(St.Accent()) end
+        elseif m then
+            row.value:SetText("|cff777777-|r")
         end
         row.selected = state.selRec == rec.id
     elseif kind == "hdr" then
@@ -574,21 +620,35 @@ function History:Refresh(keepOffset)
 
     tree:SetData(BuildTree(), true)
 
-    local scoped, shown = Collect()
+    local scoped, shown, matches = Collect()
     local sum = ns.Sum(scoped)
-    midTitle:SetText(SelectionTitle())
-    midSummary:SetText(format(L["%d items, %d visits, won %d"], sum.items, sum.visits, sum.won) .. "   ·   " .. ns.Money(sum.gold))
+    local q = Query()
+    if q ~= "" and state.tab == "rolls" then
+        -- Searching: the whole history. Count what the found player(s) won.
+        local won = 0
+        for _, rec in ipairs(shown) do
+            local m = matches[rec]
+            if m and m.w then won = won + 1 end
+        end
+        midTitle:SetText(format(L["Search: %s"], state.search))
+        midSummary:SetText(format(L["%d items found"], #shown) .. (won > 0 and ("   ·   " .. format(L["won %d"], won)) or ""))
+    else
+        midTitle:SetText(SelectionTitle())
+        midSummary:SetText(format(L["%d items, %d visits, won %d"], sum.items, sum.visits, sum.won) .. "   ·   " .. ns.Money(sum.gold))
+    end
 
     local rows
     if state.tab == "stats" then
         rows = StatRows(scoped)
     else
-        rows = RollRows(shown)
+        rows = RollRows(shown, matches)
     end
     local filterShown = state.tab == "rolls"
     search:SetShown(filterShown)
     for _, b in pairs(filterButtons) do b:SetShown(filterShown) end
     statsChoice:SetShown(not filterShown)
+    statsMine:SetShown(not filterShown)
+    statsMine:SetActive(ns.db.opts.statsMine == true)
     list:ClearAllPoints()
     list:SetPoint("TOPLEFT", 4, -76)
     list:SetPoint("BOTTOMRIGHT", -4, 4)
@@ -662,20 +722,31 @@ function History:Init()
     midSummary:SetPoint("RIGHT", mid, "RIGHT", -8, 0)
     midSummary:SetTextColor(1, 1, 1, St.DIM)
 
-    search = St.Search(mid, 116, 20, L["Search"], function(text)
+    search = St.Search(mid, MID_W - 14 - 64 - 44 - 8, 20, L["Search item or player"], function(text)
         if text ~= state.search then
             state.search = text
+            state.selRec = nil
             History:Refresh()
         end
     end)
     search:SetPoint("TOPLEFT", 8, -50)
+    search:SetScript("OnEnterPressed", function(self)
+        self:ClearFocus()
+        state.search = self:GetText() or ""
+        History:Refresh()
+    end)
+    search:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(L["Search item or player"])
+        GameTooltip:AddLine(L["A player's name shows what they picked, rolled and won (right side of each item)."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    search:HookScript("OnLeave", function() GameTooltip:Hide() end)
     local fWon = St.Button(mid, L["Won"], 64, 20, function() state.filter = "won"; History:Refresh() end)
     fWon:SetPoint("TOPRIGHT", -6, -50)
-    local fPicked = St.Button(mid, L["Picked"], 64, 20, function() state.filter = "picked"; History:Refresh() end)
-    fPicked:SetPoint("RIGHT", fWon, "LEFT", -2, 0)
     local fAll = St.Button(mid, L["All"], 44, 20, function() state.filter = "all"; History:Refresh() end)
-    fAll:SetPoint("RIGHT", fPicked, "LEFT", -2, 0)
-    filterButtons.all, filterButtons.picked, filterButtons.won = fAll, fPicked, fWon
+    fAll:SetPoint("RIGHT", fWon, "LEFT", -2, 0)
+    filterButtons.all, filterButtons.won = fAll, fWon
 
     -- Stats tab: choose which stats are shown. The menu reopens after each click,
     -- so several can be switched in a row.
@@ -692,9 +763,23 @@ function History:Init()
         end
         return items
     end
-    statsChoice = St.Dropdown(mid, MID_W - 14, 20, function() return L["Shown stats"] end, StatItems)
+    statsChoice = St.Dropdown(mid, MID_W - 14 - 96, 20, function() return L["Shown stats"] end, StatItems)
     statsChoice:SetPoint("TOPLEFT", 8, -50)
     statsChoice:Hide()
+    -- On / off: only your own stats (items you rolled on, your wins).
+    statsMine = St.Button(mid, L["Only me"], 92, 20, function()
+        ns.db.opts.statsMine = not ns.db.opts.statsMine or nil
+        History:Refresh(true)
+    end)
+    statsMine:SetPoint("TOPRIGHT", -6, -50)
+    statsMine:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(L["Only me"])
+        GameTooltip:AddLine(L["On: the stats only count the items you rolled on, and only you in 'Most items won'."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    statsMine:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    statsMine:Hide()
 
     list = St.List(mid, 38, ListMake, ListFill)
 

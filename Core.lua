@@ -287,6 +287,36 @@ local function InitDB()
     for key, k in pairs(DB.keys) do
         if type(k) ~= "table" or now - (k.t or 0) > KEY_TTL then DB.keys[key] = nil end
     end
+    ns.PurgeWorld()
+end
+
+-- A dungeon visit (or the demo history). Zones like Durotar are not.
+local function IsDungeonVisit(v)
+    return v and (v.inst or v.demo or (type(v.key) == "string" and v.key:sub(1, 2) == "i:")) and true or false
+end
+ns.IsDungeonVisit = IsDungeonVisit
+
+-- Only dungeons belong in the history: drops rolls, coins and runs saved outside of
+-- them (older versions kept those too).
+function ns.PurgeWorld()
+    local drop = {}
+    for i = #DB.visits, 1, -1 do
+        local v = DB.visits[i]
+        if not IsDungeonVisit(v) then
+            drop[v.id] = true
+            visitById[v.id] = nil
+            tremove(DB.visits, i)
+            if DB.cur == v.id then DB.cur = nil end
+        end
+    end
+    if not next(drop) then return end
+    for i = #DB.rolls, 1, -1 do
+        local rec = DB.rolls[i]
+        if drop[rec.v] then
+            byId[rec.id] = nil
+            tremove(DB.rolls, i)
+        end
+    end
 end
 
 local function PruneOld()
@@ -386,7 +416,7 @@ local function ParseCoins(msg)
 end
 
 function ns.AddMoney(copper)
-    if not DB or not copper or copper <= 0 then return end
+    if not DB or not copper or copper <= 0 or not ctx.inst then return end   -- dungeons only
     local now = time()
     local v = ns.CurrentVisit()
     if not (v and v.key == ctx.key and now - v.last < VISIT_GAP) then v = EnsureVisit(now) end
@@ -727,7 +757,14 @@ local function OnDrop(encounterID, lootListID, quiet)
     local rec = k and k.link == link and byId[k.id]
     if rec and now - rec.t > KEY_TTL then rec = nil end
     local isNew = not rec
-    if isNew then
+    if isNew and not ctx.inst then
+        -- Outside a dungeon: shown in the roll window, but not saved to the history.
+        rec = { id = DB.nextId, t = now, v = 0, link = link, world = true }
+        DB.nextId = DB.nextId + 1
+        byId[rec.id] = rec
+        DB.keys[key] = { id = rec.id, link = link, t = now }
+        ns.FillItem(rec)
+    elseif isNew then
         local v = EnsureVisit(now)
         rec = { id = DB.nextId, t = now, v = v.id, link = link }
         DB.nextId = DB.nextId + 1

@@ -1,5 +1,12 @@
 # Nibbelz Loot
 
+## 1.2.1 (minor)
+
+- Roll history only keeps dungeons. Rolls and coins outside of dungeons (e.g. Durotar) are no longer saved; they still show in the Loot Rolls window. Entries from zones saved by older versions are removed once.
+- Roll history search works for players: type a name to see every item that player rolled on, with their pick, roll and wins on the right. The search looks through the whole history, item names work too.
+- Roll history > Stats: new "Only me" switch to see only your own stats.
+- Roll history > Rolls: removed the "Picked" filter (it showed almost the same as "All").
+
 ## 1.2.0
 
 - AH value now also from **TradeSkillMaster** (AuctionDB market value, else min buyout), **Auctionator** (last scan) and **Auctioneer** (market value), besides NaowhForever.
