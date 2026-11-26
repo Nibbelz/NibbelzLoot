@@ -29,6 +29,7 @@ local DE = {
     ["Loot history"] = "Beute-Verlauf",
     ["No items won"] = "Noch keine Items gewonnen",
     ["Right-click: loot history"] = "Rechtsklick: Beute-Verlauf",
+    ["OTHERS"] = "SONSTIGES",
     ["Right-click a player for their loot history"] = "Rechtsklick auf einen Spieler zeigt seinen Beute-Verlauf",
     ["Tooltip: off"] = "Tooltip: aus",
     ["Tooltip: hover"] = "Tooltip: Hover",

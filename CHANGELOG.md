@@ -1,6 +1,14 @@
 # Nibbelz Loot
 
-## 2.0.0 (major)
+## 1.3.1 (minor)
+
+- The options window scrolls (mouse wheel) and can now also be made taller or shorter at the bottom-right corner.
+- Loot battle, Fair share, Roll history and Group stats are one block of four buttons (2 x 2).
+- New category "Others": AH prices and window style side by side (replaces the "Design" category).
+
+## 1.3.0 (minor)
+
+(Released on GitHub as 2.0.0 by mistake: no new features, so it is a minor version.)
 
 Options window re-sorted and resizable.
 

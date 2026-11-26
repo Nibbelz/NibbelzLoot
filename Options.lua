@@ -1,9 +1,10 @@
 -- Options.lua: the options window. Everything the /rolls commands do, as switches,
 -- sliders and buttons. Also listed under the game's Options > AddOns.
+-- The content scrolls (mouse wheel); the window can be resized at the corner.
 local _, ns = ...
 local St, L = ns.St, ns.L
 
-local format, floor = string.format, math.floor
+local format, max, min = string.format, math.max, math.min
 
 local Options = {}
 ns.Options = Options
@@ -11,6 +12,9 @@ ns.Options = Options
 local W = 380
 local PAD = 16
 local COL_W = (W - PAD * 2 - 8) / 2
+local BAR = 30          -- title bar
+local BOTTOM = 18       -- room for the resize grip
+local DEFAULT_H = 560   -- default window height (the rest scrolls)
 
 local frame
 local controls = {}
@@ -29,7 +33,7 @@ local function Apply()
 end
 
 local function Build()
-    frame = St.Window("NibbelzLootOptionsFrame", W, 400, L["Options"], "options")
+    frame = St.Window("NibbelzLootOptionsFrame", W, DEFAULT_H, L["Options"], "options")
     frame:Place({ "CENTER", UIParent, "CENTER", 0, 60 })
     frame:SetFrameStrata("DIALOG")
     frame:Hide()
@@ -44,15 +48,51 @@ local function Build()
     frame.title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
     frame.title:SetText("|cffffd100Nibbelz|r Loot  |cff9a9a9a" .. L["Options"] .. "|r")
 
-    local y = 40
+    -- Everything below the title bar scrolls; a thin bar on the right shows where.
+    local scroll = CreateFrame("ScrollFrame", nil, frame)
+    scroll:SetPoint("TOPLEFT", 0, -BAR)
+    scroll:SetPoint("BOTTOMRIGHT", 0, BOTTOM)
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(W, 10)
+    scroll:SetScrollChild(content)
+    local track = St.Fill(frame, { 1, 1, 1, 0.04 }, "ARTWORK")
+    track:SetPoint("TOPRIGHT", -4, -BAR - 4)
+    track:SetPoint("BOTTOMRIGHT", -4, BOTTOM + 4)
+    track:SetWidth(3)
+    local thumb = frame:CreateTexture(nil, "OVERLAY")
+    thumb:SetWidth(3)
+    local function UpdateThumb()
+        local range = scroll:GetVerticalScrollRange()
+        if range <= 0.5 then
+            track:Hide(); thumb:Hide()
+            return
+        end
+        local h, view = track:GetHeight(), scroll:GetHeight()
+        local th = max(20, h * view / (view + range))
+        local r, g, b = St.Accent()
+        thumb:SetColorTexture(r, g, b, 0.7)
+        thumb:SetHeight(th)
+        thumb:ClearAllPoints()
+        thumb:SetPoint("TOPRIGHT", track, "TOPRIGHT", 0, -(h - th) * scroll:GetVerticalScroll() / range)
+        track:Show(); thumb:Show()
+    end
+    local function ScrollTo(v)
+        scroll:SetVerticalScroll(max(0, min(scroll:GetVerticalScrollRange(), v)))
+        UpdateThumb()
+    end
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta) ScrollTo(self:GetVerticalScroll() - delta * 40) end)
+    scroll:SetScript("OnScrollRangeChanged", function(self) ScrollTo(self:GetVerticalScroll()) end)
+
+    local y = 12
     -- Rows of buttons share the width and grow with the window (see Layout).
     local rows = {}
     local function Section(text)
-        local fs = St.Section(frame, text)
+        local fs = St.Section(content, text)
         fs:SetPoint("TOPLEFT", PAD, -y)
-        local line = St.Fill(frame, { 1, 1, 1, 0.06 }, "BORDER")
+        local line = St.Fill(content, { 1, 1, 1, 0.06 }, "BORDER")
         line:SetPoint("LEFT", fs, "RIGHT", 8, 0)
-        line:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+        line:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
         line:SetHeight(1)
         y = y + 20
     end
@@ -75,18 +115,19 @@ local function Build()
         y = y + 28
     end
     local function Note(text, h)
-        local fs = St.Text(frame, 10)
+        local fs = St.Text(content, 10)
         fs:SetPoint("TOPLEFT", PAD, -y)
-        fs:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+        fs:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
         fs:SetWordWrap(true)
         fs:SetText(text)
         fs:SetTextColor(1, 1, 1, 0.5)
         y = y + h
     end
+    local function Btn(label, onClick) return St.Button(content, label, COL_W, 22, onClick) end
 
     -- Loot roll window
     Section(L["LOOT ROLL WINDOW"])
-    controls.scale = St.Slider(frame, L["Window size"], 60, 150, 5,
+    controls.scale = St.Slider(content, L["Window size"], 60, 150, 5,
         function(v) return v .. "%" end,
         function(v)
             ns.db.opts.scale = v / 100
@@ -98,7 +139,7 @@ local function Build()
         end)
     Full(controls.scale, 44)
     -- 0 = never opens by itself, 1-60 s after the last roll, STAY_OPEN = stays open.
-    controls.liveStay = St.Slider(frame, L["Window stays open after the last roll"], 0, ns.STAY_OPEN, 1,
+    controls.liveStay = St.Slider(content, L["Window stays open after the last roll"], 0, ns.STAY_OPEN, 1,
         function(v)
             if v <= 0 then return L["Never opens"] end
             if v >= ns.STAY_OPEN then return L["Stays open"] end
@@ -106,63 +147,59 @@ local function Build()
         end,
         function(v) ns.db.opts.liveStay = v end)
     Full(controls.liveStay, 44)
-    controls.minimap = St.Checkbox(frame, L["Show minimap button"], function(on)
+    controls.minimap = St.Checkbox(content, L["Show minimap button"], function(on)
         ns.Minimap:SetShown(on)
     end)
     Full(controls.minimap, 26)
-    controls.sound100 = St.Checkbox(frame, L["Play a sound when someone rolls a 100"], function(on)
+    controls.sound100 = St.Checkbox(content, L["Play a sound when someone rolls a 100"], function(on)
         ns.db.opts.sound100 = on
     end)
     Full(controls.sound100, 26)
-    controls.hideRollChat = St.Checkbox(frame, L["Hide the roll messages in chat"], function(on)
+    controls.hideRollChat = St.Checkbox(content, L["Hide the roll messages in chat"], function(on)
         ns.db.opts.hideRollChat = on
     end)
     Full(controls.hideRollChat, 26)
     Note(L["The window empties after each dungeon and when you leave the group. All rolls stay in the roll history."], 34)
-    Row({ St.Button(frame, L["Show loot roll window"], COL_W, 22, function() ns.Live:Toggle() end),
-        St.Button(frame, L["Preview with test rolls"], COL_W, 22, function() ns.TestRolls() end) })
-    Row({ St.Button(frame, L["Remove test rolls"], COL_W, 22, function() ns.ClearTest() end) }, 2)
+    Row({ Btn(L["Show loot roll window"], function() ns.Live:Toggle() end),
+        Btn(L["Preview with test rolls"], function() ns.TestRolls() end) })
+    Row({ Btn(L["Remove test rolls"], function() ns.ClearTest() end) }, 2)
     y = y + 8
 
     -- History
     Section(L["ROLL HISTORY"])
-    local reset = St.Button(frame, L["Delete roll history"], COL_W, 22, function()
-        StaticPopup_Show("NIBBELZLOOT_RESET")
-    end)
+    local reset = Btn(L["Delete roll history"], function() StaticPopup_Show("NIBBELZLOOT_RESET") end)
     reset.danger = true
     reset:Paint()
-    Row({ St.Button(frame, L["Add demo history"], COL_W, 22, function() ns.AddDemo() end),
-        St.Button(frame, L["Remove demo history"], COL_W, 22, function() ns.ClearDemo() end) })
-    Row({ reset, St.Button(frame, L["Gold per dungeon in chat"], COL_W, 22, function() ns.PrintGold() end) })
+    Row({ Btn(L["Add demo history"], function() ns.AddDemo() end),
+        Btn(L["Remove demo history"], function() ns.ClearDemo() end) })
+    Row({ reset, Btn(L["Gold per dungeon in chat"], function() ns.PrintGold() end) })
     y = y + 8
 
-    -- Loot battle
+    -- Loot battle, and the other windows one click away (a block of four).
     Section(L["LOOT BATTLE"])
-    controls.battleOffer = St.Checkbox(frame, L["Remind me of the battle when entering a dungeon"], function(on)
+    controls.battleOffer = St.Checkbox(content, L["Remind me of the battle when entering a dungeon"], function(on)
         ns.db.opts.battleOffer = on
     end)
     Full(controls.battleOffer, 26)
-    controls.battleAnnounce = St.Checkbox(frame, L["Post the result in group chat (my battles)"], function(on)
+    controls.battleAnnounce = St.Checkbox(content, L["Post the result in group chat (my battles)"], function(on)
         ns.db.opts.battleAnnounce = on
     end)
     Full(controls.battleAnnounce, 26)
-    Row({ St.Button(frame, L["Loot battle"], COL_W, 22, function() ns.Battle:Command() end) }, 2)
+    Row({ Btn(L["Loot battle"], function() ns.Battle:Command() end),
+        Btn(L["Fair share"], function() ns.Share:Toggle() end) })
+    Row({ Btn(L["Roll history"], function() ns.History:Toggle() end),
+        Btn(L["Group stats"], function() ns.GroupStats:Toggle() end) })
+    y = y + 8
 
-    -- The other windows, one click away.
-    local THIRD = (W - PAD * 2 - 16) / 3
-    Row({ St.Button(frame, L["Fair share"], THIRD, 22, function() ns.Share:Toggle() end),
-        St.Button(frame, L["Roll history"], THIRD, 22, function() ns.History:Toggle() end),
-        St.Button(frame, L["Group stats"], THIRD, 22, function() ns.GroupStats:Toggle() end) })
-    y = y + 4
-
-    -- Where the AH value comes from: automatic = the first addon that knows a price.
+    -- Others: where the AH value comes from, and the window style (side by side).
+    Section(L["OTHERS"])
     local function SourceLabel(key)
         for _, src in ipairs(ns.AH_SOURCES) do
             if src.key == key then return src.label end
         end
         return L["Automatic"]
     end
-    controls.ahSource = St.Dropdown(frame, W - PAD * 2, 22, function()
+    controls.ahSource = St.Dropdown(content, COL_W, 22, function()
         return L["AH prices: "] .. SourceLabel(ns.db.opts.ahSource or "auto")
     end, function()
         local cur = ns.db.opts.ahSource or "auto"
@@ -182,18 +219,14 @@ local function Build()
         end
         return items
     end)
-    Full(controls.ahSource, 26)
-    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
-
-    -- Design: the window style; a new style needs a UI reload.
-    Section(L["DESIGN"])
+    -- A new style needs a UI reload.
     local function StyleLabel(key)
         for _, t in ipairs(St.THEMES) do
             if t.key == key then return L[t.label] end
         end
         return L[St.THEMES[1].label]
     end
-    controls.style = St.Dropdown(frame, COL_W, 22, function()
+    controls.style = St.Dropdown(content, COL_W, 22, function()
         return L["Style: "] .. StyleLabel(ns.db.opts.theme)
     end, function()
         local items = {}
@@ -208,32 +241,38 @@ local function Build()
         end
         return items
     end)
-    Row({ controls.style }, 2)
-    y = y + 6
+    Row({ controls.ahSource, controls.style })
+    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
 
-    local hint = St.Text(frame, 10)
+    local hint = St.Text(content, 10)
     hint:SetPoint("TOPLEFT", PAD, -y)
-    hint:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+    hint:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
     hint:SetWordWrap(true)
     hint:SetText("/nl   ·   /rolls   ·   /rollhistory   ·   /lootbattle   ·   /fairshare   ·   /rolls options")
     hint:SetTextColor(1, 1, 1, 0.35)
-    y = y + 24
+    y = y + 30
+    content:SetHeight(y)
 
-    -- Button rows follow the window width.
+    -- Content and button rows follow the window width.
     local function Layout()
-        local inner = frame:GetWidth() - PAD * 2
+        local width = frame:GetWidth()
+        content:SetWidth(width)
+        local inner = width - PAD * 2
         for _, r in ipairs(rows) do
             local w = (inner - 8 * (r.slots - 1)) / r.slots
             for _, b in ipairs(r.widgets) do b:SetWidth(w) end
         end
+        ScrollTo(scroll:GetVerticalScroll())
     end
-    frame:SetHeight(y)
-    frame.defaultH = y
-    -- Wider or narrower only: the content has a fixed height.
-    St.Resizable(frame, W, y, 760, y, Layout)
-    frame:HookScript("OnSizeChanged", Layout)
-    Layout()
+    local fullH = y + BAR + BOTTOM
+    frame.defaultH = min(DEFAULT_H, fullH)
+    frame:SetHeight(frame.defaultH)
+    -- OnShow first: St.Resizable and the layout hook into it afterwards.
     frame:SetScript("OnShow", Apply)
+    St.Resizable(frame, W, 220, 760, fullH, Layout)
+    frame:HookScript("OnSizeChanged", Layout)
+    frame:HookScript("OnShow", function() C_Timer.After(0, Layout) end)
+    Layout()
 end
 
 -- An entry under Options > AddOns that opens the window.
