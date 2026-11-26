@@ -17,7 +17,7 @@ local TOP = 36
 local frame, tree, list, detail
 local tabDays, tabPlaces, tabRolls, tabStats
 local filterButtons = {}
-local midTitle, midSummary, search, statsChoice, statsMine
+local midTitle, midSummary, search, statsChoice, statsMine, statsGroup
 
 local state = {
     mode = "days",                       -- days | places
@@ -194,25 +194,26 @@ local STATS = {
 }
 local function StatOn(key) return not ns.db.opts.hideStats[key] end
 
--- "Only me": just the items you rolled on, and only you in "Most items won".
-local function Mine(rec)
-    if rec.mw or (rec.my and rec.my ~= S.NONE) then return true end
-    for _, e in ipairs(rec.rolls or {}) do
-        if e.me then return true end
+-- The whole group added up: every pick of every player, everything anyone won.
+local function GroupSum(scoped)
+    local t = { need = 0, greed = 0, pass = 0, won = 0, gold = 0, ah = 0 }
+    for _, rec in ipairs(scoped) do
+        for _, e in ipairs(rec.rolls or {}) do
+            if e.s == S.NEED or e.s == S.OFF then t.need = t.need + 1
+            elseif e.s == S.GREED or e.s == S.XMOG then t.greed = t.greed + 1
+            elseif e.s == S.PASS then t.pass = t.pass + 1 end
+        end
+        if rec.win then
+            t.won = t.won + 1
+            t.gold = t.gold + (rec.sell or 0)
+            t.ah = t.ah + (ns.AH(rec) or 0)
+        end
     end
-    return false
+    return t
 end
 
 local function StatRows(scoped)
-    local onlyMe = ns.db.opts.statsMine
-    if onlyMe then
-        local mine = {}
-        for _, rec in ipairs(scoped) do
-            if Mine(rec) then mine[#mine + 1] = rec end
-        end
-        scoped = mine
-    end
-    local me = ns.MyName()
+    local group = ns.db.opts.statsGroup
     local sum = ns.Sum(scoped)
     local money, moneyByPlace = 0, {}
     for _, v in ipairs(ns.db.visits) do
@@ -221,22 +222,40 @@ local function StatRows(scoped)
             moneyByPlace[v.place] = (moneyByPlace[v.place] or 0) + v.money
         end
     end
-    local values = {
-        items = tostring(sum.items),
-        picks = format("%d / %d / %d", sum.need, sum.greed, sum.pass),
-        won = tostring(sum.won),
-        money = ns.Money(money),
-        gold = ns.Money(sum.gold),
-        ah = ns.Money(sum.ah),
-        total = ns.Money(money + sum.gold),
-        all = ns.Money(sum.all),
-        allAH = ns.Money(sum.allAH),
-    }
+    local values
+    if group then
+        -- Looted coins are only known for you: not shown for the group.
+        local g = GroupSum(scoped)
+        values = {
+            items = tostring(sum.items),
+            picks = format("%d / %d / %d", g.need, g.greed, g.pass),
+            won = tostring(g.won),
+            gold = ns.Money(g.gold),
+            ah = ns.Money(g.ah),
+            all = ns.Money(sum.all),
+            allAH = ns.Money(sum.allAH),
+        }
+    else
+        values = {
+            items = tostring(sum.items),
+            picks = format("%d / %d / %d", sum.need, sum.greed, sum.pass),
+            won = tostring(sum.won),
+            money = ns.Money(money),
+            gold = ns.Money(sum.gold),
+            ah = ns.Money(sum.ah),
+            total = ns.Money(money + sum.gold),
+            all = ns.Money(sum.all),
+            allAH = ns.Money(sum.allAH),
+        }
+    end
     local accent = { money = true, gold = true, ah = true, total = true }
-    local rows = { { kind = "shdr", text = L["Overview"], h = 26 } }
+    local rows = { { kind = "shdr", h = 26,
+        text = L["Overview"] .. "  |cff9a9a9a·  " .. (group and L["Group"] or L["Only me"]) .. "|r" } }
     for _, s in ipairs(STATS) do
         if values[s.key] and StatOn(s.key) then
-            rows[#rows + 1] = { kind = "stat", h = 22, text = L[s.label], value = values[s.key], accent = accent[s.key] }
+            local label = L[s.label]
+            if group and s.key == "picks" then label = L["Need / Greed / Pass (everyone)"] end
+            rows[#rows + 1] = { kind = "stat", h = 22, text = label, value = values[s.key], accent = accent[s.key] }
         end
     end
     if #rows == 1 then rows = {} end
@@ -267,7 +286,7 @@ local function StatRows(scoped)
     local winners, wlist = {}, {}
     local showWinners = StatOn("winners")
     for _, rec in ipairs(scoped) do
-        if showWinners and rec.win and (not onlyMe or rec.mw or rec.win == me) then
+        if showWinners and rec.win then
             local w = winners[rec.win]
             if not w then
                 w = { name = rec.win, class = rec.wc, count = 0, gold = 0 }
@@ -435,7 +454,25 @@ local function ListFill(row, item)
         row.sub:Show()
         row.sub:SetPoint("TOPLEFT", row.title, "BOTTOMLEFT", 0, -3)
         row.sub:SetPoint("RIGHT", row, "RIGHT", -58, 0)
-        if rec.ap then
+        local m = item.match
+        if m then
+            -- Searched player: their pick and roll first; who got it otherwise.
+            local line = ns.ClassName(m.n, m.c) .. " "
+            if m.s and m.s ~= S.NONE then
+                line = line .. St.StateMarkup(m.s, 11) .. " " .. ns.StateInfo(m.s).label .. (m.r and (" " .. m.r) or "")
+            else
+                line = line .. "|cff9a9a9a" .. L["waiting"] .. "|r"
+            end
+            if m.w then
+                local ar, ag, ab = St.Accent()
+                line = line .. format("  |cff%02x%02x%02x%s|r", ar * 255, ag * 255, ab * 255, L["won it"])
+            elseif rec.win then
+                line = line .. "  |cff9a9a9a(" .. L["went to"] .. " " .. rec.win .. ")|r"
+            elseif rec.ap then
+                line = line .. "  |cff9a9a9a(" .. L["Everyone passed"] .. ")|r"
+            end
+            row.sub:SetText(line)
+        elseif rec.ap then
             row.sub:SetText("|cff9a9a9a" .. L["Everyone passed"] .. "|r")
         elseif rec.win then
             row.sub:SetText(L["Won by"] .. " " .. ns.ClassName(rec.win, rec.wc) .. " " .. St.StateMarkup(rec.ws, 11) .. " " .. (rec.wr or ""))
@@ -443,7 +480,6 @@ local function ListFill(row, item)
             row.sub:SetText("|cff9a9a9a" .. L["Rolling..."] .. "|r")
         end
         -- Right: the searched player's pick and roll, else your own.
-        local m = item.match
         local s, r, w
         if m then
             s, r, w = m.s, m.r, m.w
@@ -648,7 +684,9 @@ function History:Refresh(keepOffset)
     for _, b in pairs(filterButtons) do b:SetShown(filterShown) end
     statsChoice:SetShown(not filterShown)
     statsMine:SetShown(not filterShown)
-    statsMine:SetActive(ns.db.opts.statsMine == true)
+    statsGroup:SetShown(not filterShown)
+    statsMine:SetActive(not ns.db.opts.statsGroup)
+    statsGroup:SetActive(ns.db.opts.statsGroup == true)
     list:ClearAllPoints()
     list:SetPoint("TOPLEFT", 4, -76)
     list:SetPoint("BOTTOMRIGHT", -4, 4)
@@ -666,6 +704,7 @@ end
 function History:Init()
     frame = St.Window("NibbelzLootHistoryFrame", W, H, L["Roll History"], "history")
     frame:Place({ "CENTER", UIParent, "CENTER", 0, 40 })
+    St.Resizable(frame, 760, 380, 1400, 1000, function() History:Refresh(true) end)
     frame:SetScale(ns.db.opts.scale or 1)
     frame:SetFrameStrata("HIGH")
     frame:Hide()
@@ -763,23 +802,33 @@ function History:Init()
         end
         return items
     end
-    statsChoice = St.Dropdown(mid, MID_W - 14 - 96, 20, function() return L["Shown stats"] end, StatItems)
+    statsChoice = St.Dropdown(mid, MID_W - 14 - 140, 20, function() return L["Shown stats"] end, StatItems)
     statsChoice:SetPoint("TOPLEFT", 8, -50)
     statsChoice:Hide()
-    -- On / off: only your own stats (items you rolled on, your wins).
-    statsMine = St.Button(mid, L["Only me"], 92, 20, function()
-        ns.db.opts.statsMine = not ns.db.opts.statsMine or nil
+    -- Overview: your own numbers (default) or the whole group added up.
+    local function Tip(btn, title, text)
+        btn:HookScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:AddLine(title)
+            GameTooltip:AddLine(text, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        btn:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    statsGroup = St.Button(mid, L["Group"], 66, 20, function()
+        ns.db.opts.statsGroup = true
         History:Refresh(true)
     end)
-    statsMine:SetPoint("TOPRIGHT", -6, -50)
-    statsMine:HookScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine(L["Only me"])
-        GameTooltip:AddLine(L["On: the stats only count the items you rolled on, and only you in 'Most items won'."], 1, 1, 1, true)
-        GameTooltip:Show()
+    statsGroup:SetPoint("TOPRIGHT", -6, -50)
+    Tip(statsGroup, L["Group"], L["Overview: everything added up for the whole group (picks, items won, gold)."])
+    statsMine = St.Button(mid, L["Only me"], 66, 20, function()
+        ns.db.opts.statsGroup = nil
+        History:Refresh(true)
     end)
-    statsMine:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    statsMine:SetPoint("RIGHT", statsGroup, "LEFT", -2, 0)
+    Tip(statsMine, L["Only me"], L["Overview: your own picks, wins, gold and looted money."])
     statsMine:Hide()
+    statsGroup:Hide()
 
     list = St.List(mid, 38, ListMake, ListFill)
 

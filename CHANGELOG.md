@@ -1,5 +1,11 @@
 # Nibbelz Loot
 
+## 1.2.2 (minor)
+
+- Roll history search: when you search a player, each item now shows that player's pick and roll (and whether they won it, or who got it) instead of the winner.
+- Roll history > Stats: the "Only me" switch is replaced by "Only me" / "Group" for the Overview. "Only me" (default) shows your own numbers, "Group" adds up everyone's picks, items won, gold and AH value.
+- Roll History, Group stats, Loot battle and Fair share can be resized by dragging the bottom-right corner, like the Loot Rolls window. The size is saved; double-click the corner for the default size.
+
 ## 1.2.1 (minor)
 
 - Roll history only keeps dungeons. Rolls and coins outside of dungeons (e.g. Durotar) are no longer saved; they still show in the Loot Rolls window. Entries from zones saved by older versions are removed once.

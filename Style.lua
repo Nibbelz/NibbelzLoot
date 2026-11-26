@@ -254,7 +254,69 @@ function St.Window(name, w, h, title, posKey)
             self:SetPoint(unpack(default))
         end
     end
+    f.posKey, f.defaultW, f.defaultH = posKey, w, h
     return f
+end
+
+-- Makes a St.Window resizable by dragging its bottom right corner. The size is saved
+-- (ns.db.pos[posKey .. "Size"]); a double-click on the grip returns to the default
+-- size. onDone(reset) runs when a drag ends or the size was reset. While dragging,
+-- f.sizing is true (windows that set their own height leave it alone then).
+function St.Resizable(f, minW, minH, maxW, maxH, onDone)
+    local key = f.posKey .. "Size"
+    f:SetResizable(true)
+    if f.SetResizeBounds then
+        f:SetResizeBounds(minW, minH, maxW, maxH)
+    elseif f.SetMinResize then
+        f:SetMinResize(minW, minH)
+        f:SetMaxResize(maxW, maxH)
+    end
+    local saved = ns.db.pos[key]
+    if type(saved) == "table" and saved[1] then
+        f:SetSize(max(minW, min(maxW, saved[1])), max(minH, min(maxH, saved[2])))
+    end
+    function f:UserHeight()
+        local s = ns.db.pos[key]
+        return type(s) == "table" and s[2] or nil
+    end
+
+    local grip = CreateFrame("Button", nil, f)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", -2, 2)
+    grip:SetFrameLevel(f:GetFrameLevel() + 20)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    -- Children are created later and may sit above the grip: keep it on top.
+    f:HookScript("OnShow", function() grip:SetFrameLevel(f:GetFrameLevel() + 20) end)
+    grip:SetScript("OnMouseDown", function(_, button)
+        if button ~= "LeftButton" then return end
+        f.sizing = true
+        f:StartSizing("BOTTOMRIGHT")
+    end)
+    grip:SetScript("OnMouseUp", function()
+        if not f.sizing then return end
+        f:StopMovingOrSizing()
+        f.sizing = false
+        ns.db.pos[key] = { floor(f:GetWidth() + 0.5), floor(f:GetHeight() + 0.5) }
+        local point, _, relPoint, x, y = f:GetPoint()
+        ns.db.pos[f.posKey] = { point, relPoint, x, y }
+        if onDone then onDone(false) end
+    end)
+    grip:SetScript("OnDoubleClick", function()
+        ns.db.pos[key] = nil
+        f:SetSize(f.defaultW, f.defaultH)
+        if onDone then onDone(true) end
+    end)
+    grip:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(ns.L["Drag to resize"])
+        GameTooltip:AddLine(ns.L["Double-click: default size"], 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    grip:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    f.grip = grip
+    return grip
 end
 
 function St.CloseButton(parent)

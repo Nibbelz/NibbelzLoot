@@ -560,6 +560,7 @@ end
 local function Build()
     frame = St.Window("NibbelzLootShareFrame", 700, 480, L["Fair share"], "share")
     frame:Place({ "CENTER", UIParent, "CENTER", 60, 0 })
+    St.Resizable(frame, 640, 400, 1400, 1000, function() Share:Refresh() end)
     frame:SetScale(ns.db.opts.scale or 1)
     frame:SetFrameStrata("HIGH")
     frame:Hide()

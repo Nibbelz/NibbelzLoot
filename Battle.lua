@@ -1170,6 +1170,8 @@ local function BuildMain(parent)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetSize(W - 16, 26)
     scroll:SetScrollChild(child)
+    -- The rows follow the window's width.
+    scroll:SetScript("OnSizeChanged", function(self, w) if w and w > 0 then child:SetWidth(w) end end)
     local thumb = scroll:CreateTexture(nil, "OVERLAY")
     thumb:SetWidth(3)
     thumb:Hide()
@@ -1296,7 +1298,7 @@ function Battle:Refresh()
     if not b or self.view == "setup" then
         setup:Show(); main:Hide()
         setup:Sync()
-        frame:SetHeight(setup.height + 30)
+        if not frame.sizing then frame:SetHeight(max(setup.height + 30, frame:UserHeight() or 0)) end
         return
     end
     setup:Hide(); main:Show()
@@ -1374,6 +1376,13 @@ function Battle:Refresh()
     end
     -- At most MAX_ROWS categories visible; the rest scrolls.
     local visible = min(max(y, 26), MAX_ROWS * 26)
+    -- A height the player dragged: the category table takes what is left over.
+    local userH = frame:UserHeight()
+    if frame.sizing then
+        visible = max(26, frame:GetHeight() - (30 + 62 + 26 + 4 + 34 + 150))
+    elseif userH then
+        visible = max(26, userH - (30 + 62 + 26 + 4 + 34 + 150))
+    end
     main.child:SetHeight(max(y, 1))
     main.scroll:SetHeight(visible)
     main.scroll:Update()
@@ -1391,12 +1400,13 @@ function Battle:Refresh()
         bottomTitle:SetText(format(L["%d playing"], JoinedCount(b)))
         bottomList:SetData(PlayerItems(b, result), true)
     end
-    frame:SetHeight(30 + 62 + main.inset:GetHeight() + 34 + 150)
+    if not frame.sizing then frame:SetHeight(30 + 62 + main.inset:GetHeight() + 34 + 150) end
 end
 
 local function Build()
     frame = St.Window("NibbelzLootBattleFrame", W, 560, L["Loot battle"], "battle")
     frame:Place({ "CENTER", UIParent, "CENTER", -40, 40 })
+    St.Resizable(frame, W, 400, 1000, 1000, function() Battle:Refresh() end)
     frame:SetScale(ns.db.opts.scale or 1)
     frame:SetFrameStrata("HIGH")
     frame:Hide()

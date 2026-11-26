@@ -369,6 +369,7 @@ end
 local function Init()
     frame = St.Window("NibbelzLootGroupStatsFrame", W, H, L["Group stats"], "groupstats")
     frame:Place({ "CENTER", UIParent, "CENTER", 40, 20 })
+    St.Resizable(frame, 700, 360, 1400, 1000, function() GS:Refresh(true) end)
     frame:SetScale(ns.db.opts.scale or 1)
     frame:SetFrameStrata("HIGH")
     frame:Hide()
