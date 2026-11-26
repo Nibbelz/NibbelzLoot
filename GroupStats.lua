@@ -180,6 +180,7 @@ local function CompareTip(owner, p)
         end
         if #p.won > 10 then GameTooltip:AddLine(format(L["... and %d more"], #p.won - 10), 0.6, 0.6, 0.6) end
     end
+    GameTooltip:AddLine(L["Right-click: loot history"], 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end
 
@@ -206,6 +207,7 @@ local function PlayerTip(owner, p)
         end
     end
     if n > 10 then GameTooltip:AddLine(format(L["... and %d more"], n - 10), 0.6, 0.6, 0.6) end
+    GameTooltip:AddLine(L["Right-click: loot history"], 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end
 
@@ -245,6 +247,16 @@ local function Make(l)
         GameTooltip:Show()
     end)
     row.box:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- Right-click a player: their loot history in a small window.
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    row:SetScript("OnClick", function(self, button)
+        local item = self.item
+        if button ~= "RightButton" or not (item and item.name and item.runs and item.kind ~= "guild") then return end
+        local scope
+        if state.scope ~= "all" then scope = state.scope == "30" and L["30 days"] or L["7 days"] end
+        GameTooltip:Hide()
+        ns.PlayerLoot:Open(item, Since(), scope)
+    end)
     row:SetScript("OnEnter", function(self)
         self:PaintState(false)
         local item = self.item
@@ -510,4 +522,5 @@ end
 
 function GS:ApplyScale()
     if frame then frame:SetScale(ns.db.opts.scale or 1) end
+    if ns.PlayerLoot then ns.PlayerLoot:ApplyScale() end
 end

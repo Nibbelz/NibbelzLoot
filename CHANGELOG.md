@@ -1,5 +1,10 @@
 # Nibbelz Loot
 
+## 1.2.3 (minor)
+
+- Group stats: right-click a player to open their loot history in a small window: every item they won (or, with "All rolls", every item they rolled on) with their pick, roll, place, date and value. Follows the time range of Group stats.
+- The loot history window shows about five items, the rest scrolls. It can be resized by dragging the bottom-right corner (double-click for the default size).
+
 ## 1.2.2 (minor)
 
 - Roll history search: when you search a player, each item now shows that player's pick and roll (and whether they won it, or who got it) instead of the winner.
