@@ -65,7 +65,21 @@ end
 -------------------------------------------------------------------------------
 --  Rows
 -------------------------------------------------------------------------------
+-- Item tooltip on hover: off (default) | hover | compare (with the equipped item).
+local TIP_MODES = { "off", "hover", "compare" }
+local TIP_LABEL = { off = "Tooltip: off", hover = "Tooltip: hover", compare = "Tooltip: compare" }
+local function TipMode() return ns.db.opts.lootTip or "off" end
+
+local function HideCompare()
+    for _, name in ipairs({ "ShoppingTooltip1", "ShoppingTooltip2" }) do
+        local t = _G[name]
+        if t and t:IsShown() then t:Hide() end
+    end
+end
+
 local function ItemTip(owner, rec)
+    local mode = TipMode()
+    if mode == "off" then return end
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
     if not pcall(GameTooltip.SetHyperlink, GameTooltip, rec.link) then
         GameTooltip:AddLine(rec.n or "?")
@@ -77,6 +91,11 @@ local function ItemTip(owner, rec)
     if ah then GameTooltip:AddDoubleLine(L["AH value"], ns.Money(ah), 1, 1, 1, 1, 1, 1) end
     GameTooltip:AddLine(L["Shift-click to link it."], 0.6, 0.6, 0.6)
     GameTooltip:Show()
+    if mode == "compare" then
+        if GameTooltip_ShowCompareItem then pcall(GameTooltip_ShowCompareItem, GameTooltip) end
+    else
+        HideCompare()
+    end
 end
 
 local function Make(l)
@@ -109,6 +128,11 @@ local function Make(l)
     row:SetScript("OnLeave", function(self)
         self:PaintState(false)
         GameTooltip:Hide()
+        HideCompare()
+    end)
+    -- "hover" mode: the game may add the comparison later (Shift, always-compare): keep it off.
+    row:SetScript("OnUpdate", function(self)
+        if TipMode() == "hover" and self:IsMouseOver() then HideCompare() end
     end)
     return row
 end
@@ -207,9 +231,33 @@ local function Init()
     nameText:SetPoint("TOPLEFT", 12, -38)
     nameText:SetPoint("RIGHT", filterButtons.won, "LEFT", -8, 0)
     nameText:SetHeight(16)
+    local tipButton
+    tipButton = St.Button(frame, L[TIP_LABEL[TipMode()]], 120, 18, function()
+        local cur, nextMode = TipMode(), "off"
+        for i, m in ipairs(TIP_MODES) do
+            if m == cur then nextMode = TIP_MODES[i % #TIP_MODES + 1] end
+        end
+        ns.db.opts.lootTip = nextMode
+        tipButton.text:SetText(L[TIP_LABEL[nextMode]])
+        tipButton:SetActive(nextMode ~= "off")
+    end)
+    tipButton:SetActive(TipMode() ~= "off")
+    tipButton:SetPoint("TOPRIGHT", -8, -58)
+    tipButton:SetScript("OnEnter", function(self)
+        if self.Paint then self:Paint() end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(L["Item tooltip on hover"])
+        GameTooltip:AddLine(L["Click to switch: off, hover, hover and compare with your equipped item."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    tipButton:SetScript("OnLeave", function(self)
+        if self.Paint then self:Paint() end
+        GameTooltip:Hide()
+    end)
+
     summary = St.Text(frame, 10)
     summary:SetPoint("TOPLEFT", 12, -62)
-    summary:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
+    summary:SetPoint("RIGHT", tipButton, "LEFT", -6, 0)
     summary:SetTextColor(1, 1, 1, St.DIM + 0.15)
 
     local inset = CreateFrame("Frame", nil, frame)

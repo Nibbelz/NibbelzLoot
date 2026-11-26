@@ -158,59 +158,6 @@ end
 -------------------------------------------------------------------------------
 --  Rows
 -------------------------------------------------------------------------------
--- In the comparison: what each one did in the shared runs.
-local function CompareTip(owner, p)
-    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(ns.ClassName(p.name, p.c))
-    if p.g then GameTooltip:AddLine("<" .. p.g .. ">", 0.6, 0.9, 0.6) end
-    GameTooltip:AddDoubleLine(L["Runs together"], p.runs, 1, 1, 1, 1, 1, 1)
-    GameTooltip:AddDoubleLine(L["Need picks"], p.needs, 1, 1, 1, 1, 1, 1)
-    if p.rolls > 0 then
-        GameTooltip:AddDoubleLine(L["Average roll"], format("%.1f", p.rollSum / p.rolls), 1, 1, 1, 1, 1, 1)
-        GameTooltip:AddDoubleLine(L["Highest roll"], p.best, 1, 1, 1, 1, 1, 1)
-    end
-    if #p.won > 0 then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(L["Items won"], 1, 0.82, 0)
-        for i = #p.won, max(1, #p.won - 9), -1 do
-            local rec = p.won[i]
-            local r, g, b = ns.QualityColor(rec.q)
-            local ah = ns.AH(rec)
-            GameTooltip:AddDoubleLine(rec.n or "?", ah and ns.Money(ah) or ns.Money(rec.sell or 0), r, g, b, 1, 1, 1)
-        end
-        if #p.won > 10 then GameTooltip:AddLine(format(L["... and %d more"], #p.won - 10), 0.6, 0.6, 0.6) end
-    end
-    GameTooltip:AddLine(L["Right-click: loot history"], 0.6, 0.6, 0.6)
-    GameTooltip:Show()
-end
-
-local function PlayerTip(owner, p)
-    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(ns.ClassName(p.name, p.c))
-    if p.g then GameTooltip:AddLine("<" .. p.g .. ">", 0.6, 0.9, 0.6) end
-    GameTooltip:AddDoubleLine(L["Runs together"], p.runs, 1, 1, 1, 1, 1, 1)
-    local since, n = Since(), 0
-    local rolls = ns.db.rolls
-    for i = #rolls, 1, -1 do
-        local rec = rolls[i]
-        if rec.t >= since and rec.win == p.name then
-            n = n + 1
-            if n == 1 then
-                GameTooltip:AddLine(" ")
-                GameTooltip:AddLine(L["Items won"], 1, 0.82, 0)
-            end
-            if n <= 10 then
-                local r, g, b = ns.QualityColor(rec.q)
-                local ah = ns.AH(rec)
-                GameTooltip:AddDoubleLine(rec.n or "?", ah and ns.Money(ah) or ns.Money(rec.sell or 0), r, g, b, 1, 1, 1)
-            end
-        end
-    end
-    if n > 10 then GameTooltip:AddLine(format(L["... and %d more"], n - 10), 0.6, 0.6, 0.6) end
-    GameTooltip:AddLine(L["Right-click: loot history"], 0.6, 0.6, 0.6)
-    GameTooltip:Show()
-end
-
 local function Make(l)
     local row = CreateFrame("Button", nil, l)
     St.RowBackground(row)
@@ -257,17 +204,9 @@ local function Make(l)
         GameTooltip:Hide()
         ns.PlayerLoot:Open(item, Since(), scope)
     end)
-    row:SetScript("OnEnter", function(self)
-        self:PaintState(false)
-        local item = self.item
-        if item and item.runs and item.kind ~= "guild" then
-            if item.won then CompareTip(self, item) else PlayerTip(self, item) end
-        end
-    end)
-    row:SetScript("OnLeave", function(self)
-        self:PaintState(false)
-        GameTooltip:Hide()
-    end)
+    -- No tooltip on hover: everything is in the row already.
+    row:SetScript("OnEnter", function(self) self:PaintState(false) end)
+    row:SetScript("OnLeave", function(self) self:PaintState(false) end)
     return row
 end
 
@@ -394,6 +333,11 @@ local function Init()
     logo:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     frame.title:ClearAllPoints()
     frame.title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
+    -- Hint: right-click opens a player's loot history.
+    local hint = St.Text(frame.bar, 10, "RIGHT")
+    hint:SetPoint("RIGHT", -36, 0)
+    hint:SetText(L["Right-click a player for their loot history"])
+    hint:SetTextColor(1, 1, 1, St.DIM)
 
     -- Toolbar: time range, search, filters.
     local scopes = { { "all", L["All time"], 78 }, { "30", L["30 days"], 70 }, { "7", L["7 days"], 70 } }

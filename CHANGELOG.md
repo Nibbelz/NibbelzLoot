@@ -1,5 +1,11 @@
 # Nibbelz Loot
 
+## 1.2.4 (minor)
+
+- Loot history window: item tooltips are off by default. A new button switches between "off", "hover" (item tooltip only) and "compare" (item tooltip plus the comparison with your equipped item). The setting is saved.
+- Group stats: no more tooltip when hovering a player, everything is already in the row.
+- Group stats: hint in the title bar "Right-click a player for their loot history".
+
 ## 1.2.3 (minor)
 
 - Group stats: right-click a player to open their loot history in a small window: every item they won (or, with "All rolls", every item they rolled on) with their pick, roll, place, date and value. Follows the time range of Group stats.
