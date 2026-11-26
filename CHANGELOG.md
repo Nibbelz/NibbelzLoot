@@ -1,5 +1,15 @@
 # Nibbelz Loot
 
+## 2.0.0 (major)
+
+Options window re-sorted and resizable.
+
+- New order: Loot roll window (Window size, Window stays open, Show minimap button, Play a sound, Hide roll messages, buttons), Roll history, Loot battle (with the Fair share / Roll history / Group stats buttons and the AH prices below them), and the new category **Design** with the window style.
+- "Open loot battle" is now just "Loot battle".
+- "Gold per dungeon in chat" moved down, next to "Delete roll history".
+- The "Display" category is gone; its settings moved as listed above.
+- The options window can be made wider by dragging the bottom-right corner (double-click for the default size); the buttons grow with it.
+
 ## 1.2.4 (minor)
 
 - Loot history window: item tooltips are off by default. A new button switches between "off", "hover" (item tooltip only) and "compare" (item tooltip plus the comparison with your equipped item). The setting is saved.

@@ -45,6 +45,8 @@ local function Build()
     frame.title:SetText("|cffffd100Nibbelz|r Loot  |cff9a9a9a" .. L["Options"] .. "|r")
 
     local y = 40
+    -- Rows of buttons share the width and grow with the window (see Layout).
+    local rows = {}
     local function Section(text)
         local fs = St.Section(frame, text)
         fs:SetPoint("TOPLEFT", PAD, -y)
@@ -59,46 +61,31 @@ local function Build()
         widget:SetPoint("TOPRIGHT", -PAD, -y)
         y = y + h
     end
-    local function Pair(a, b)
-        a:SetPoint("TOPLEFT", PAD, -y)
-        b:SetPoint("TOPLEFT", PAD + COL_W + 8, -y)
+    -- Widgets side by side; slots = the row's column count (a lone button in a
+    -- two-column row stays half wide).
+    local function Row(widgets, slots)
+        for i, w in ipairs(widgets) do
+            if i == 1 then
+                w:SetPoint("TOPLEFT", PAD, -y)
+            else
+                w:SetPoint("LEFT", widgets[i - 1], "RIGHT", 8, 0)
+            end
+        end
+        rows[#rows + 1] = { widgets = widgets, slots = slots or #widgets }
         y = y + 28
+    end
+    local function Note(text, h)
+        local fs = St.Text(frame, 10)
+        fs:SetPoint("TOPLEFT", PAD, -y)
+        fs:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+        fs:SetWordWrap(true)
+        fs:SetText(text)
+        fs:SetTextColor(1, 1, 1, 0.5)
+        y = y + h
     end
 
     -- Loot roll window
     Section(L["LOOT ROLL WINDOW"])
-    -- 0 = never opens by itself, 1-60 s after the last roll, STAY_OPEN = stays open.
-    controls.liveStay = St.Slider(frame, L["Window stays open after the last roll"], 0, ns.STAY_OPEN, 1,
-        function(v)
-            if v <= 0 then return L["Never opens"] end
-            if v >= ns.STAY_OPEN then return L["Stays open"] end
-            return format(L["%d sec"], v)
-        end,
-        function(v) ns.db.opts.liveStay = v end)
-    Full(controls.liveStay, 44)
-    controls.sound100 = St.Checkbox(frame, L["Play a sound when someone rolls a 100"], function(on)
-        ns.db.opts.sound100 = on
-    end)
-    Full(controls.sound100, 26)
-    controls.hideRollChat = St.Checkbox(frame, L["Hide the roll messages in chat"], function(on)
-        ns.db.opts.hideRollChat = on
-    end)
-    Full(controls.hideRollChat, 26)
-    local note = St.Text(frame, 10)
-    note:SetPoint("TOPLEFT", PAD, -y)
-    note:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
-    note:SetWordWrap(true)
-    note:SetText(L["The window empties after each dungeon and when you leave the group. All rolls stay in the roll history."])
-    note:SetTextColor(1, 1, 1, 0.5)
-    y = y + 34
-    Pair(St.Button(frame, L["Show loot roll window"], COL_W, 22, function() ns.Live:Toggle() end),
-        St.Button(frame, L["Preview with test rolls"], COL_W, 22, function() ns.TestRolls() end))
-    local clearTest = St.Button(frame, L["Remove test rolls"], COL_W, 22, function() ns.ClearTest() end)
-    clearTest:SetPoint("TOPLEFT", PAD, -y)
-    y = y + 28 + 8
-
-    -- Look
-    Section(L["DISPLAY"])
     controls.scale = St.Slider(frame, L["Window size"], 60, 150, 5,
         function(v) return v .. "%" end,
         function(v)
@@ -110,10 +97,63 @@ local function Build()
             ns.Share:ApplyScale()
         end)
     Full(controls.scale, 44)
+    -- 0 = never opens by itself, 1-60 s after the last roll, STAY_OPEN = stays open.
+    controls.liveStay = St.Slider(frame, L["Window stays open after the last roll"], 0, ns.STAY_OPEN, 1,
+        function(v)
+            if v <= 0 then return L["Never opens"] end
+            if v >= ns.STAY_OPEN then return L["Stays open"] end
+            return format(L["%d sec"], v)
+        end,
+        function(v) ns.db.opts.liveStay = v end)
+    Full(controls.liveStay, 44)
     controls.minimap = St.Checkbox(frame, L["Show minimap button"], function(on)
         ns.Minimap:SetShown(on)
     end)
     Full(controls.minimap, 26)
+    controls.sound100 = St.Checkbox(frame, L["Play a sound when someone rolls a 100"], function(on)
+        ns.db.opts.sound100 = on
+    end)
+    Full(controls.sound100, 26)
+    controls.hideRollChat = St.Checkbox(frame, L["Hide the roll messages in chat"], function(on)
+        ns.db.opts.hideRollChat = on
+    end)
+    Full(controls.hideRollChat, 26)
+    Note(L["The window empties after each dungeon and when you leave the group. All rolls stay in the roll history."], 34)
+    Row({ St.Button(frame, L["Show loot roll window"], COL_W, 22, function() ns.Live:Toggle() end),
+        St.Button(frame, L["Preview with test rolls"], COL_W, 22, function() ns.TestRolls() end) })
+    Row({ St.Button(frame, L["Remove test rolls"], COL_W, 22, function() ns.ClearTest() end) }, 2)
+    y = y + 8
+
+    -- History
+    Section(L["ROLL HISTORY"])
+    local reset = St.Button(frame, L["Delete roll history"], COL_W, 22, function()
+        StaticPopup_Show("NIBBELZLOOT_RESET")
+    end)
+    reset.danger = true
+    reset:Paint()
+    Row({ St.Button(frame, L["Add demo history"], COL_W, 22, function() ns.AddDemo() end),
+        St.Button(frame, L["Remove demo history"], COL_W, 22, function() ns.ClearDemo() end) })
+    Row({ reset, St.Button(frame, L["Gold per dungeon in chat"], COL_W, 22, function() ns.PrintGold() end) })
+    y = y + 8
+
+    -- Loot battle
+    Section(L["LOOT BATTLE"])
+    controls.battleOffer = St.Checkbox(frame, L["Remind me of the battle when entering a dungeon"], function(on)
+        ns.db.opts.battleOffer = on
+    end)
+    Full(controls.battleOffer, 26)
+    controls.battleAnnounce = St.Checkbox(frame, L["Post the result in group chat (my battles)"], function(on)
+        ns.db.opts.battleAnnounce = on
+    end)
+    Full(controls.battleAnnounce, 26)
+    Row({ St.Button(frame, L["Loot battle"], COL_W, 22, function() ns.Battle:Command() end) }, 2)
+
+    -- The other windows, one click away.
+    local THIRD = (W - PAD * 2 - 16) / 3
+    Row({ St.Button(frame, L["Fair share"], THIRD, 22, function() ns.Share:Toggle() end),
+        St.Button(frame, L["Roll history"], THIRD, 22, function() ns.History:Toggle() end),
+        St.Button(frame, L["Group stats"], THIRD, 22, function() ns.GroupStats:Toggle() end) })
+    y = y + 4
 
     -- Where the AH value comes from: automatic = the first addon that knows a price.
     local function SourceLabel(key)
@@ -143,40 +183,10 @@ local function Build()
         return items
     end)
     Full(controls.ahSource, 26)
-    local ahNote = St.Text(frame, 10)
-    ahNote:SetPoint("TOPLEFT", PAD, -y)
-    ahNote:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
-    ahNote:SetWordWrap(true)
-    ahNote:SetText(L["AH prices are taken when an item drops. Older items without a price look it up once."])
-    ahNote:SetTextColor(1, 1, 1, 0.5)
-    y = y + 26 + 8
+    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
 
-    -- History
-    Section(L["ROLL HISTORY"])
-    local reset = St.Button(frame, L["Delete roll history"], COL_W, 22, function()
-        StaticPopup_Show("NIBBELZLOOT_RESET")
-    end)
-    reset.danger = true
-    reset:Paint()
-    Pair(St.Button(frame, L["Gold per dungeon in chat"], COL_W, 22, function() ns.PrintGold() end), reset)
-    Pair(St.Button(frame, L["Add demo history"], COL_W, 22, function() ns.AddDemo() end),
-        St.Button(frame, L["Remove demo history"], COL_W, 22, function() ns.ClearDemo() end))
-    y = y + 8
-
-    -- Loot battle
-    Section(L["LOOT BATTLE"])
-    controls.battleOffer = St.Checkbox(frame, L["Remind me of the battle when entering a dungeon"], function(on)
-        ns.db.opts.battleOffer = on
-    end)
-    Full(controls.battleOffer, 26)
-    controls.battleAnnounce = St.Checkbox(frame, L["Post the result in group chat (my battles)"], function(on)
-        ns.db.opts.battleAnnounce = on
-    end)
-    Full(controls.battleAnnounce, 26)
-    local battleBtn = St.Button(frame, L["Open loot battle"], COL_W, 22, function() ns.Battle:Command() end)
-    battleBtn:SetPoint("TOPLEFT", PAD, -y)
-
-    -- Window style: a dropdown next to it; a new style needs a UI reload.
+    -- Design: the window style; a new style needs a UI reload.
+    Section(L["DESIGN"])
     local function StyleLabel(key)
         for _, t in ipairs(St.THEMES) do
             if t.key == key then return L[t.label] end
@@ -198,27 +208,31 @@ local function Build()
         end
         return items
     end)
-    controls.style:SetPoint("LEFT", battleBtn, "RIGHT", 8, 0)
-    y = y + 28
-
-    -- The other windows, one click away: fair share under the loot battle button.
-    local THIRD = (W - PAD * 2 - 16) / 3
-    local share = St.Button(frame, L["Fair share"], THIRD, 22, function() ns.Share:Toggle() end)
-    share:SetPoint("TOPLEFT", PAD, -y)
-    local hist = St.Button(frame, L["Roll history"], THIRD, 22, function() ns.History:Toggle() end)
-    hist:SetPoint("LEFT", share, "RIGHT", 8, 0)
-    local stats = St.Button(frame, L["Group stats"], THIRD, 22, function() ns.GroupStats:Toggle() end)
-    stats:SetPoint("LEFT", hist, "RIGHT", 8, 0)
-    y = y + 34
+    Row({ controls.style }, 2)
+    y = y + 6
 
     local hint = St.Text(frame, 10)
     hint:SetPoint("TOPLEFT", PAD, -y)
     hint:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
+    hint:SetWordWrap(true)
     hint:SetText("/nl   ·   /rolls   ·   /rollhistory   ·   /lootbattle   ·   /fairshare   ·   /rolls options")
     hint:SetTextColor(1, 1, 1, 0.35)
     y = y + 24
 
+    -- Button rows follow the window width.
+    local function Layout()
+        local inner = frame:GetWidth() - PAD * 2
+        for _, r in ipairs(rows) do
+            local w = (inner - 8 * (r.slots - 1)) / r.slots
+            for _, b in ipairs(r.widgets) do b:SetWidth(w) end
+        end
+    end
     frame:SetHeight(y)
+    frame.defaultH = y
+    -- Wider or narrower only: the content has a fixed height.
+    St.Resizable(frame, W, y, 760, y, Layout)
+    frame:HookScript("OnSizeChanged", Layout)
+    Layout()
     frame:SetScript("OnShow", Apply)
 end
 
