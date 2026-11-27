@@ -30,6 +30,8 @@ local function Apply()
     controls.ahSource:Update()
     controls.battleOffer:SetChecked(o.battleOffer)
     controls.battleAnnounce:SetChecked(o.battleAnnounce)
+    controls.questDungeon:SetChecked(o.questLootDungeon)
+    controls.questWorld:SetChecked(o.questLootWorld)
 end
 
 local function Build()
@@ -136,6 +138,7 @@ local function Build()
             ns.GroupStats:ApplyScale()
             ns.Battle:ApplyScale()
             ns.Share:ApplyScale()
+            ns.Reals:ApplyScale()
         end)
     Full(controls.scale, 44)
     -- 0 = never opens by itself, 1-60 s after the last roll, STAY_OPEN = stays open.
@@ -189,6 +192,22 @@ local function Build()
         Btn(L["Fair share"], function() ns.Share:Toggle() end) })
     Row({ Btn(L["Roll history"], function() ns.History:Toggle() end),
         Btn(L["Group stats"], function() ns.GroupStats:Toggle() end) })
+    y = y + 8
+
+    -- Quests and dungeon loot: enemies to loot for a quest, the daily Undermine Reals.
+    Section(L["QUEST LOOT"])
+    controls.questDungeon = St.Checkbox(content, L["Mark enemies to loot for a quest in dungeons"], function(on)
+        ns.db.opts.questLootDungeon = on
+        ns.QuestMobs:UpdateAll()
+    end)
+    Full(controls.questDungeon, 26)
+    controls.questWorld = St.Checkbox(content, L["Mark enemies to loot for a quest outdoors"], function(on)
+        ns.db.opts.questLootWorld = on
+        ns.QuestMobs:UpdateAll()
+    end)
+    Full(controls.questWorld, 26)
+    Note(L["A bag icon next to the nameplate and a line in the tooltip show enemies that drop an item your quest still needs."], 34)
+    Row({ Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) }, 2)
     y = y + 8
 
     -- Others: where the AH value comes from, and the window style (side by side).
@@ -248,7 +267,7 @@ local function Build()
     hint:SetPoint("TOPLEFT", PAD, -y)
     hint:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
     hint:SetWordWrap(true)
-    hint:SetText("/nl   ·   /rolls   ·   /rollhistory   ·   /lootbattle   ·   /fairshare   ·   /rolls options")
+    hint:SetText("/nl   ·   /rolls   ·   /rollhistory   ·   /lootbattle   ·   /fairshare   ·   /reals   ·   /rolls options")
     hint:SetTextColor(1, 1, 1, 0.35)
     y = y + 30
     content:SetHeight(y)

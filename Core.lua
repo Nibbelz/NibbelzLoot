@@ -231,6 +231,8 @@ local DEFAULTS = {
     hideRollChat = true,     -- hide the game's roll lines in chat (Loot.lua)
     autoClose = true,        -- close the roll window once every roll is done
     theme = "nibbelz",       -- window style (Style.lua), applied at load
+    questLootDungeon = true, -- mark enemies you must loot for a quest, in dungeons (QuestMobs.lua)
+    questLootWorld = true,   -- ... and outdoors
 }
 
 local function InitDB()
@@ -1314,6 +1316,9 @@ SlashCmdList.NIBBELZLOOTBATTLE = function() ns.Battle:Command() end
 
 SLASH_NIBBELZLOOTHISTORY1 = "/rollhistory"
 SlashCmdList.NIBBELZLOOTHISTORY = function() ns.History:Toggle() end
+
+SLASH_NIBBELZLOOTREALS1 = "/reals"
+SlashCmdList.NIBBELZLOOTREALS = function() ns.Reals:Toggle() end
 
 function NibbelzLoot_OnAddonCompartmentClick(_, button)
     if IsControlKeyDown() then

@@ -1,5 +1,10 @@
 # Nibbelz Loot
 
+## 1.4.0 (minor)
+
+- **Quest loot:** enemies that drop an item one of your quests still needs get a bag icon next to their nameplate and a line in their tooltip ("Loot it for your quest"). Kill objectives and finished objectives are left out. Two new switches under "Quest loot": in dungeons and outdoors.
+- **Undermine Reals:** new window (button under "Quest loot", or `/reals`) showing which bosses already gave you your Tarnished Undermine Reals today. All bosses from Sunken Temple and Blackrock Depths on (Dire Maul, Lower/Upper Blackrock Spire, Scholomance, Stratholme, Blackmaw Hold, Shaper's Terrace), last bosses marked with 3, the others 1. Shows your Reals, today's total and the time until the daily reset. Per character; the dungeon you are in comes first; option to hide looted bosses; dungeons fold with a click.
+
 ## 1.3.1 (minor)
 
 - The options window scrolls (mouse wheel) and can now also be made taller or shorter at the bottom-right corner.
