@@ -32,6 +32,9 @@ local function Apply()
     controls.battleAnnounce:SetChecked(o.battleAnnounce)
     controls.questDungeon:SetChecked(o.questLootDungeon)
     controls.questWorld:SetChecked(o.questLootWorld)
+    controls.questIcon:SetChecked(o.questIcon ~= false)
+    controls.questIconScale:SetValue(math.floor((o.questIconScale or 1) * 100 + 0.5))
+    controls.questIconTime:SetValue(o.questIconTime or 3)
 end
 
 local function Build()
@@ -198,15 +201,38 @@ local function Build()
     Section(L["QUEST LOOT"])
     controls.questDungeon = St.Checkbox(content, L["Mark enemies to loot for a quest in dungeons"], function(on)
         ns.db.opts.questLootDungeon = on
-        ns.QuestMobs:UpdateAll()
     end)
     Full(controls.questDungeon, 26)
     controls.questWorld = St.Checkbox(content, L["Mark enemies to loot for a quest outdoors"], function(on)
         ns.db.opts.questLootWorld = on
-        ns.QuestMobs:UpdateAll()
     end)
     Full(controls.questWorld, 26)
-    Note(L["A bag icon next to the nameplate and a line in the tooltip show enemies that drop an item your quest still needs."], 34)
+    Note(L["A line in the tooltip shows enemies that drop an item your quest still needs."], 34)
+    -- After killing one: the quest item's icon pops up on screen.
+    controls.questIcon = St.Checkbox(content, L["Show the quest item's icon after a kill"], function(on)
+        ns.db.opts.questIcon = on
+        if not on and ns.QuestMobs:IsMoving() then
+            ns.QuestMobs:SetMoving(false)
+            controls.questIconMove.text:SetText(L["Move icon"])
+        end
+    end)
+    Full(controls.questIcon, 26)
+    controls.questIconScale = St.Slider(content, L["Icon size"], 50, 250, 10,
+        function(v) return v .. "%" end,
+        function(v)
+            ns.db.opts.questIconScale = v / 100
+            ns.QuestMobs:ApplyScale()
+        end)
+    Full(controls.questIconScale, 44)
+    controls.questIconTime = St.Slider(content, L["Icon shown for"], 1, 10, 1,
+        function(v) return format(L["%d sec"], v) end,
+        function(v) ns.db.opts.questIconTime = v end)
+    Full(controls.questIconTime, 44)
+    controls.questIconMove = Btn(L["Move icon"], function(self)
+        local on = ns.QuestMobs:SetMoving(not ns.QuestMobs:IsMoving())
+        controls.questIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])
+    end)
+    Row({ controls.questIconMove }, 2)
     Row({ Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) }, 2)
     y = y + 8
 
@@ -291,6 +317,13 @@ local function Build()
     St.Resizable(frame, W, 220, 760, fullH, Layout)
     frame:HookScript("OnSizeChanged", Layout)
     frame:HookScript("OnShow", function() C_Timer.After(0, Layout) end)
+    -- Closing the options ends moving the quest item icon.
+    frame:HookScript("OnHide", function()
+        if ns.QuestMobs:IsMoving() then
+            ns.QuestMobs:SetMoving(false)
+            controls.questIconMove.text:SetText(L["Move icon"])
+        end
+    end)
     Layout()
 end
 

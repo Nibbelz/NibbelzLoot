@@ -1,5 +1,10 @@
 # Nibbelz Loot
 
+## 1.4.1 (minor)
+
+- Quest loot: the bag icon next to the nameplates is removed again (it could sit in the wrong place with nameplate addons). Enemies to loot for a quest are still marked in their tooltip.
+- Quest loot reminder: when you kill an enemy that drops an item your quest still needs, the icon of that item (with its name) pops up on screen for a moment. Options: on/off, icon size (50-250 %), how long it is shown (1-10 seconds) and "Move icon" to drag it where you want it.
+
 ## 1.4.0 (minor)
 
 - **Quest loot:** enemies that drop an item one of your quests still needs get a bag icon next to their nameplate and a line in their tooltip ("Loot it for your quest"). Kill objectives and finished objectives are left out. Two new switches under "Quest loot": in dungeons and outdoors.

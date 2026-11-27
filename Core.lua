@@ -233,6 +233,9 @@ local DEFAULTS = {
     theme = "nibbelz",       -- window style (Style.lua), applied at load
     questLootDungeon = true, -- mark enemies you must loot for a quest, in dungeons (QuestMobs.lua)
     questLootWorld = true,   -- ... and outdoors
+    questIcon = true,        -- after killing one: the quest item's icon on screen
+    questIconScale = 1,
+    questIconTime = 3,       -- seconds
 }
 
 local function InitDB()
