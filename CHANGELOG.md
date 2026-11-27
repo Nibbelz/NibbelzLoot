@@ -1,5 +1,9 @@
 # Nibbelz Loot
 
+## 1.4.4 (minor)
+
+- Undermine Reals: in a dungeon, the window opens with that dungeon unfolded (all other dungeons stay folded). Fold it by hand and it stays folded until you enter a dungeon again.
+
 ## 1.4.3 (minor)
 
 - Options > Roll history: "Gold per dungeon in chat" is now a dropdown. Pick "All dungeons + total" (as before) or a single dungeon to post only its gold, items, runs and AH value.

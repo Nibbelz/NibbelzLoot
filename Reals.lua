@@ -291,6 +291,7 @@ events:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         R:Refresh(true)
     elseif event == "PLAYER_ENTERING_WORLD" then
         wipe(seenGuid)
+        R:ResetFolds()   -- a new dungeon: it opens unfolded again
         R:Refresh(true)
     end
 end)
@@ -302,6 +303,8 @@ local W, H = 400, 520
 local frame, list, info, hideCheck
 local opened = {}   -- unfolded dungeons (by list index); all folded at first
 local search = ""   -- dungeon or boss name (lower case)
+
+function R:ResetFolds() wipe(opened) end
 
 local function BossName(b)
     local naowh = _G.NaowhForever
@@ -370,8 +373,9 @@ local function Build()
             if hit and not (hide and e) then bosses[#bosses + 1] = { kind = "boss", h = 22, b = b, e = e } end
         end
         if dungeonHit or #bosses > 0 then
-            -- While searching, matches are unfolded; otherwise only what you opened.
-            local open = (search ~= "") or opened[i] == true
+            -- While searching, matches are unfolded; the dungeon you are in is unfolded
+            -- unless you folded it; otherwise only what you opened.
+            local open = (search ~= "") or opened[i] == true or (d[2] == here and opened[i] ~= false)
             rows[#rows + 1] = { kind = "hdr", h = 26, d = d, idx = i, done = done, total = total,
                 here = d[2] == here, open = open }
             if open then
@@ -396,7 +400,7 @@ local function Make(l)
     row:SetScript("OnClick", function(self)
         local item = self.item
         if item and item.kind == "hdr" then
-            opened[item.idx] = not opened[item.idx] or nil
+            opened[item.idx] = not item.open
             R:Refresh(true)
         end
     end)
