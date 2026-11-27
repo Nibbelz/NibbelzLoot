@@ -682,6 +682,15 @@ local function ResultLines(b, result)
     return lines
 end
 
+-- For the battle history window (BattleHistory.lua).
+function Battle.ResultLines(b)
+    if not b.result then return {} end
+    return ResultLines(b, b.result)
+end
+function Battle.ModeLabel(b)
+    return MODES[b.mode] and MODES[b.mode].label or ""
+end
+
 function Battle:Finish(reason)
     local b = self:Active()
     if not b then return end
@@ -1419,6 +1428,8 @@ local function Build()
     logo:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     frame.title:ClearAllPoints()
     frame.title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
+    local hist = St.Button(frame.bar, L["Battle history"], 110, 18, function() ns.BattleHistory:Toggle() end)
+    hist:SetPoint("RIGHT", frame.close, "LEFT", -8, 0)
 
     setup = BuildSetup(frame)
     main = BuildMain(frame)

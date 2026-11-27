@@ -23,10 +23,12 @@ St.THEMES = {
     { key = "ellesmere", label = "EllesmereUI",
       panel = { 0.069, 0.058, 0.047, 0.97 }, inset = { 0.103, 0.095, 0.088, 0.55 }, btn = { 0.089, 0.080, 0.072, 0.60 },
       line = { 1, 1, 1 }, lineMul = 1, accent = "eui", font = "eui" },
-    { key = "classic", label = "Classic", frame = "blizzard", button = "blizzard",
-      panel = { 0.02, 0.02, 0.02, 0.88 }, inset = { 0, 0, 0, 0.45 }, btn = { 0.2, 0.04, 0.02, 0.9 },
-      line = { 0.8, 0.65, 0.3 }, lineMul = 2.5, accent = { 1, 0.82, 0 }, title = { 1, 0.82, 0 },
-      section = { 1, 0.82, 0, 0.75 } },
+    -- The WoW Forever UI: the game menu's dialog frame (dark, metal corners), the red
+    -- buttons with gold text, gold headers with a bronze line, Blizzard check boxes.
+    { key = "classic", label = "Classic", frame = "blizzard", button = "blizzard", check = "blizzard",
+      panel = { 0.03, 0.025, 0.02, 0.94 }, inset = { 0, 0, 0, 0.4 }, btn = { 0.2, 0.04, 0.02, 0.9 },
+      line = { 0.72, 0.56, 0.3 }, lineMul = 3, accent = { 1, 0.82, 0 }, title = { 1, 0.82, 0 },
+      section = { 1, 0.82, 0, 1 } },
     { key = "naowh", label = "Naowh",
       panel = { 0.098, 0.106, 0.114, 0.97 }, inset = { 0.118, 0.125, 0.133, 0.9 }, btn = { 0.15, 0.16, 0.17, 0.9 },
       line = { 1, 1, 1 }, lineMul = 0.9, accent = { 0, 0.569, 0.929 } },
@@ -165,9 +167,12 @@ function St.Border(frame, a, r, g, b)
     return edges
 end
 
+local BLIZZ_EDGE = 9   -- how far the Classic style's dialog edge reaches outside a window
+
 -- A movable top-level window with title bar and close button.
 function St.Window(name, w, h, title, posKey)
-    local classic = theme.frame == "blizzard" and BackdropTemplateMixin
+    local blizz = theme.frame == "blizzard"
+    local classic = blizz and BackdropTemplateMixin
     local f = CreateFrame("Frame", name, UIParent, classic and "BackdropTemplate" or nil)
     f:SetSize(w, h)
     f:SetFrameStrata("MEDIUM")
@@ -175,6 +180,24 @@ function St.Window(name, w, h, title, posKey)
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:EnableMouse(true)
+    -- WoW Forever: the game menu's dialog frame (dark background, metal edge and corners).
+    local dialog
+    if blizz then
+        local ok, border = pcall(CreateFrame, "Frame", nil, f, "DialogBorderDarkTemplate")
+        if not ok or not border then ok, border = pcall(CreateFrame, "Frame", nil, f, "DialogBorderTemplate") end
+        if ok and border then
+            dialog = border
+            -- The metal edge sits OUTSIDE the window, so title bar, buttons, search
+            -- boxes and lists keep their places and never run into it.
+            border:ClearAllPoints()
+            border:SetPoint("TOPLEFT", f, "TOPLEFT", -BLIZZ_EDGE, BLIZZ_EDGE)
+            border:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", BLIZZ_EDGE, -BLIZZ_EDGE)
+            border:SetFrameLevel(max(0, f:GetFrameLevel() - 1))
+            classic = false
+            f.bg = St.Fill(f, St.PANEL)
+            f.bg:SetAllPoints()
+        end
+    end
     if classic then
         -- Blizzard's own frame: tooltip border, dark parchment-less background.
         f:SetBackdrop({
@@ -185,7 +208,7 @@ function St.Window(name, w, h, title, posKey)
         })
         f:SetBackdropColor(St.PANEL[1], St.PANEL[2], St.PANEL[3], St.PANEL[4])
         f:SetBackdropBorderColor(0.8, 0.65, 0.3, 1)
-    else
+    elseif not dialog then
         f.bg = St.Fill(f, St.PANEL)
         f.bg:SetAllPoints()
         St.Border(f, 0.12)
@@ -209,6 +232,11 @@ function St.Window(name, w, h, title, posKey)
         local r, g, b = St.Accent()
         local line = St.Fill(bar, { r, g, b, 0.9 }, "ARTWORK")
         line:SetPoint("BOTTOMLEFT"); line:SetPoint("BOTTOMRIGHT"); Pixel(line, nil, 1)
+    elseif blizz then
+        -- Gold title over a bronze line, like the quest tracker's headers.
+        local lr, lg, lb = St.Line(0.2)
+        local line = St.Fill(bar, { lr, lg, lb, 0.7 }, "BORDER")
+        line:SetPoint("BOTTOMLEFT", 8, 0); line:SetPoint("BOTTOMRIGHT", -8, 0); Pixel(line, nil, 1)
     else
         local lr, lg, lb, la = St.Line(0.06)
         local line = St.Fill(bar, { lr, lg, lb, la }, "BORDER")
@@ -224,10 +252,10 @@ function St.Window(name, w, h, title, posKey)
     end
     if theme.title then f.title:SetTextColor(theme.title[1], theme.title[2], theme.title[3]) end
 
-    if classic and UIPanelCloseButton then
+    if blizz and UIPanelCloseButton then
         f.close = CreateFrame("Button", nil, bar, "UIPanelCloseButton")
         f.close:SetSize(24, 24)
-        f.close:SetPoint("RIGHT", -2, 0)
+        f.close:SetPoint("RIGHT", -4, -1)
     elseif theme.closeX then
         -- A plain "x" that turns red on hover.
         f.close = CreateFrame("Button", nil, bar)
@@ -374,7 +402,66 @@ local function BlizzardButton(b)
     end
 end
 
+-- WoW Forever's own red button (UIPanelButtonTemplate: red with a bronze edge, gold
+-- text, white on hover), like "Enter World" and the game menu. nil if the client has none.
+-- Font objects for those buttons (normal gold, hover white, disabled grey), per
+-- justification: a button keeps its font only through font objects.
+local buttonFonts = {}
+function St.ButtonFonts(b, justify)
+    justify = justify or "CENTER"
+    local set = buttonFonts[justify]
+    if not set then
+        set = {}
+        for key, c in pairs({ n = { 1, 0.82, 0 }, h = { 1, 1, 1 }, d = { 0.5, 0.5, 0.5 } }) do
+            local fo = CreateFont("NibbelzLootButtonFont" .. key .. justify)
+            fo:SetFont(fontPath, 11, "")
+            fo:SetTextColor(c[1], c[2], c[3])
+            fo:SetShadowColor(0, 0, 0, 1)
+            fo:SetShadowOffset(1, -1)
+            fo:SetJustifyH(justify)
+            set[key] = fo
+        end
+        buttonFonts[justify] = set
+    end
+    b:SetNormalFontObject(set.n)
+    b:SetHighlightFontObject(set.h)
+    b:SetDisabledFontObject(set.d)
+end
+
+local function ForeverButton(parent, label, w, h, onClick)
+    local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
+    if not ok or not b then return nil end
+    b:SetSize(w, h or 20)
+    St.ButtonFonts(b)
+    b:SetText(label)
+    b.text = b:GetFontString()
+    if not b.text then return nil end
+    b.text:ClearAllPoints()
+    b.text:SetPoint("CENTER", 0, 0)
+    b.forever = true
+    b.SetBorderColor = function() end
+    b.active = false
+    function b:Paint()
+        -- Selected = pressed look; the template colours the text itself (gold / white).
+        self:SetButtonState(self.active and "PUSHED" or "NORMAL", self.active)
+        if self.danger then self.text:SetTextColor(1, 0.4, 0.35, 1) end
+    end
+    function b:SetActive(on)
+        self.active = on and true or false
+        self:Paint()
+    end
+    b:HookScript("OnEnter", function(self) if self.danger then self.text:SetTextColor(1, 0.55, 0.5, 1) end end)
+    b:HookScript("OnLeave", function(self) self:Paint() end)
+    if onClick then b:SetScript("OnClick", onClick) end
+    b:Paint()
+    return b
+end
+
 function St.Button(parent, label, w, h, onClick, template)
+    if theme.button == "blizzard" and not template then
+        local fb = ForeverButton(parent, label, w, h, onClick)
+        if fb then return fb end
+    end
     local b = CreateFrame("Button", nil, parent, template)
     b:SetSize(w, h or 20)
     b.text = St.Text(b, 11, "CENTER")
@@ -526,6 +613,33 @@ function St.Pill(parent, w, h)
     St.Border(p, 0.3)
     p.text = St.Text(p, 10, "CENTER")
     p.text:SetPoint("CENTER", 0, 0)
+    if theme.check == "blizzard" then
+        -- Classic: like the game's loot roll frame: the roll icon (dice, coin, cross)
+        -- and the word in its colour, no coloured box.
+        p.bg:Hide()
+        p:SetBorderColor(0, 0, 0, 0)
+        p.icon = p:CreateTexture(nil, "OVERLAY")
+        p.icon:SetSize(14, 14)
+        p.icon:SetPoint("LEFT", 2, 0)
+        p.text:ClearAllPoints()
+        p.text:SetPoint("LEFT", p.icon, "RIGHT", 3, 0)
+        p.text:SetJustifyH("LEFT")
+        p.text:SetFont(fontPath, 11, "")
+        function p:SetState(state)
+            local info = ns.StateInfo(state)
+            local c = info.color
+            St.SetStateIcon(self.icon, state)   -- hides itself while waiting
+            self.text:ClearAllPoints()
+            if self.icon:IsShown() then
+                self.text:SetPoint("LEFT", self.icon, "RIGHT", 3, 0)
+            else
+                self.text:SetPoint("LEFT", 19, 0)
+            end
+            self.text:SetText(info.label)
+            self.text:SetTextColor(c[1], c[2], c[3], info.key == "wait" and 0.6 or 1)
+        end
+        return p
+    end
     function p:SetState(state)
         local info = ns.StateInfo(state)
         local c = info.color
@@ -715,7 +829,29 @@ function St.Checkbox(parent, label, onChange)
     b.text:SetPoint("LEFT", b.box, "RIGHT", 8, 0)
     b.text:SetPoint("RIGHT", b, "RIGHT", 0, 0)
     b.text:SetText(label)
-    if theme.check == "toggle" then
+    if theme.check == "blizzard" then
+        -- The game's own check box (WoW Forever options): box art, gold tick.
+        b.box:SetSize(22, 22)
+        bg:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
+        bg:SetVertexColor(1, 1, 1, 1)
+        b.box:SetBorderColor(0, 0, 0, 0)
+        b.mark:ClearAllPoints()
+        b.mark:SetAllPoints(b.box)
+        b.mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        local glow = b.box:CreateTexture(nil, "OVERLAY")
+        glow:SetAllPoints()
+        glow:SetTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+        glow:SetBlendMode("ADD")
+        b.text:ClearAllPoints()
+        b.text:SetPoint("LEFT", b.box, "RIGHT", 4, 0)
+        b.text:SetPoint("RIGHT", b, "RIGHT", 0, 0)
+        function b:Paint()
+            local hover = self:IsMouseOver()
+            self.mark:SetShown(self.checked)
+            glow:SetShown(hover)
+            self.text:SetTextColor(1, 1, 1, hover and 1 or 0.9)
+        end
+    elseif theme.check == "toggle" then
         -- A switch: track turns accent when on, the knob slides right (Nibbelz style).
         b.box:SetSize(30, 16)
         b.box:SetBorderColor(0, 0, 0, 0)
@@ -790,8 +926,17 @@ function St.Slider(parent, label, minV, maxV, step, fmt, onChange)
     fill:SetPoint("LEFT")
     fill:SetHeight(4)
     local thumb = s:CreateTexture(nil, "OVERLAY")
-    thumb:SetSize(8, 16)
-    thumb:SetColorTexture(1, 1, 1, 1)
+    local blizz = theme.check == "blizzard"
+    if blizz then
+        -- WoW Forever: the game's slider knob on a bronze track.
+        thumb:SetTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+        thumb:SetSize(32, 32)
+        track:SetColorTexture(0.72, 0.56, 0.3, 0.35)
+        f.label:SetTextColor(1, 0.82, 0, 1)
+    else
+        thumb:SetSize(8, 16)
+        thumb:SetColorTexture(1, 1, 1, 1)
+    end
     s:SetThumbTexture(thumb)
     f.slider = s
 
@@ -799,9 +944,11 @@ function St.Slider(parent, label, minV, maxV, step, fmt, onChange)
         self.value:SetText(fmt(v))
         local r, g, b = St.Accent()
         fill:SetColorTexture(r, g, b, 0.8)
-        thumb:SetColorTexture(r, g, b, 1)
-        local w = s:GetWidth()
-        if w > 0 then fill:SetWidth(max(1, w * (v - minV) / (maxV - minV))) end
+        if not blizz then thumb:SetColorTexture(r, g, b, 1) end
+        -- The thumb's centre moves from half a thumb in to half a thumb before the
+        -- end: the coloured bar ends exactly there.
+        local w, tw = s:GetWidth(), thumb:GetWidth()
+        if w > 0 then fill:SetWidth(max(1, tw / 2 + (w - tw) * (v - minV) / (maxV - minV))) end
     end
     function f:SetValue(v)
         s:SetValue(v)
@@ -962,6 +1109,7 @@ end
 function St.Dropdown(parent, w, h, getText, getItems)
     local b
     b = St.Button(parent, "", w, h, function() St.ContextMenu(getItems(), b) end)
+    if b.forever then St.ButtonFonts(b, "LEFT") end   -- keeps left-aligned on hover
     b.text:ClearAllPoints()
     b.text:SetPoint("LEFT", 8, 0)
     b.text:SetPoint("RIGHT", -18, 0)

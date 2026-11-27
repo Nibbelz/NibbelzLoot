@@ -236,12 +236,18 @@ local DEFAULTS = {
     questIcon = true,        -- after killing one: the quest item's icon on screen
     questIconScale = 1,
     questIconTime = 3,       -- seconds
+    questDoneHint = true,    -- a short hint when the last item of a quest objective is looted
+    questDoneSound = false,  -- ... and a sound (off by default)
     realIcon = true,         -- after a boss that drops Reals: blink a Real until you loot it (Reals.lua)
     realIconScale = 1,
     realIconTime = 61,       -- 1-60 seconds, 61 = until looted
 }
 
 local function InitDB()
+    -- First start after installing: let the player pick a style (StyleChoice.lua).
+    if NibbelzLootDB == nil then
+        NibbelzLootDB = { opts = { chooseStyle = true } }
+    end
     NibbelzLootDB = NibbelzLootDB or {}
     DB = NibbelzLootDB
     DB.rolls = DB.rolls or {}
@@ -1269,6 +1275,8 @@ SlashCmdList.NIBBELZLOOT = function(msg)
         ns.GroupStats:Toggle()
     elseif cmd == "options" or cmd == "config" or cmd == "opt" then
         ns.Options:Toggle()
+    elseif cmd == "style" then
+        ns.StyleChoice:Show()    -- the style choice from the first start
     elseif cmd == "news" or cmd == "whatsnew" then
         ns.WhatsNew:Show(true)   -- the "what's new" window with the latest changes
     elseif cmd == "gold" then

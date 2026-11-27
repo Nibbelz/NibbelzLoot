@@ -14,7 +14,7 @@ ns.QuestMobs = QM
 
 local ICON = "Interface\\Icons\\INV_Misc_Bag_10"
 local Plain = function(v, kind) return ns.Plain(v, kind) end
-local max, min = math.max, math.min
+local max, min, format = math.max, math.min, string.format
 
 -- Kill objectives: the unit counts, but there is nothing to loot.
 local KILL_WORDS = { "slain", "killed", "defeated", "getötet", "besiegt", "erschlagen", "vernichtet" }
@@ -81,6 +81,62 @@ local function MyItems()
     return mine
 end
 function QM:QuestLogChanged() mine = nil end
+
+-------------------------------------------------------------------------------
+--  Done: when the last item of a quest objective is looted, a short hint (and,
+--  if switched on, a sound). opts.questDoneHint (on by default), opts.questDoneSound (off).
+-------------------------------------------------------------------------------
+local progress   -- ["questID:index"] = finished, for every item objective in your log
+
+-- "Plainstrider Meat: 7/7" / "7/7 Plainstrider Meat" -> "Plainstrider Meat"
+local function ItemName(text)
+    text = Plain(text, "string") or ""
+    return (text:gsub("%d+%s*/%s*%d+", ""):gsub("^%s*%-%s*", ""):gsub(":", ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function Announce(title, item, questDone)
+    local o = ns.db.opts
+    if o.questDoneHint ~= false then
+        local msg = questDone and format(L["%s: all items looted, quest complete!"], title)
+            or format(L["%s: all %s looted"], title, item)
+        if UIErrorsFrame and UIErrorsFrame.AddMessage then
+            UIErrorsFrame:AddMessage(msg, 0.05, 0.82, 0.62, 1)
+        else
+            ns.Print(msg)
+        end
+    end
+    if o.questDoneSound then
+        local kit = SOUNDKIT and (SOUNDKIT.IG_QUEST_LIST_COMPLETE or SOUNDKIT.READY_CHECK)
+        pcall(PlaySound, kit or 878, "Master")
+    end
+end
+
+-- notify: compare with the last scan and announce objectives that just got done.
+function QM:ScanProgress(notify)
+    local Q = C_QuestLog
+    if not (Q and Q.GetNumQuestLogEntries and Q.GetInfo and Q.GetQuestObjectives) then return end
+    local now = {}
+    for i = 1, Q.GetNumQuestLogEntries() or 0 do
+        local info = Q.GetInfo(i)
+        if info and not info.isHeader and info.questID then
+            local objs = Q.GetQuestObjectives(info.questID) or {}
+            local allDone = #objs > 0
+            for _, o in ipairs(objs) do
+                if not o.finished then allDone = false end
+            end
+            for j, o in ipairs(objs) do
+                if o.type == "item" then
+                    local key = info.questID .. ":" .. j
+                    now[key] = o.finished and true or false
+                    if notify and progress and progress[key] == false and o.finished then
+                        Announce(info.title or "?", ItemName(o.text), allDone)
+                    end
+                end
+            end
+        end
+    end
+    progress = now
+end
 
 local QUEST_TITLE = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.QuestTitle
 local QUEST_PLAYER = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.QuestPlayer
@@ -345,7 +401,9 @@ local function CheckDead(unit)
     watched[guid] = nil
     shown[guid] = true
     if not next(watched) then Listen(false) end
-    -- Only items your own quests still need now (one may have been finished since).
+    -- Only items your own quests still need right now (read fresh: the last one may
+    -- have been looted a moment ago and the quest is done).
+    mine = nil
     local own, items = MyItems(), {}
     for _, name in ipairs(w.items) do
         if own[name] then items[#items + 1] = name end
@@ -388,11 +446,15 @@ events:SetScript("OnEvent", function(_, event, unit)
         -- Quests changed: enemies checked before may count now (or no longer).
         wipe(checked)
         QM:QuestLogChanged()
+        -- Did the last needed item of an objective just come in?
+        ns.Debounce("questProgress", 0.2, function() QM:ScanProgress(true) end)
     elseif event == "PLAYER_ENTERING_WORLD" then
         wipe(watched)
         wipe(shown)
         wipe(checked)
         Listen(false)
+        -- The starting point: nothing is announced for what is already done.
+        if not progress then C_Timer.After(2, function() QM:ScanProgress(false) end) end
     end
 end)
 C_Timer.NewTicker(60, Prune)

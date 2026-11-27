@@ -35,6 +35,8 @@ local function Apply()
     controls.questIcon:SetChecked(o.questIcon ~= false)
     controls.questIconScale:SetValue(math.floor((o.questIconScale or 1) * 100 + 0.5))
     controls.questIconTime:SetValue(o.questIconTime or 3)
+    controls.questDoneHint:SetChecked(o.questDoneHint ~= false)
+    controls.questDoneSound:SetChecked(o.questDoneSound == true)
     controls.realIcon:SetChecked(o.realIcon ~= false)
     controls.realIconScale:SetValue(math.floor((o.realIconScale or 1) * 100 + 0.5))
     controls.realIconTime:SetValue(o.realIconTime or 61)
@@ -163,6 +165,14 @@ local function Build()
     end
     local function Btn(label, onClick) return St.Button(body, label, COL_W, 22, onClick) end
 
+    -- General
+    Section("general", L["GENERAL"])
+    controls.minimap = St.Checkbox(body, L["Show minimap button"], function(on)
+        ns.Minimap:SetShown(on)
+    end)
+    Full(controls.minimap, 26)
+    EndSection()
+
     -- Loot roll window
     Section("roll", L["LOOT ROLL WINDOW"])
     controls.scale = St.Slider(body, L["Window size"], 60, 150, 5,
@@ -175,6 +185,7 @@ local function Build()
             ns.Battle:ApplyScale()
             ns.Share:ApplyScale()
             ns.Reals:ApplyScale()
+            ns.BattleHistory:ApplyScale()
         end)
     Full(controls.scale, 44)
     -- 0 = never opens by itself, 1-60 s after the last roll, STAY_OPEN = stays open.
@@ -186,10 +197,6 @@ local function Build()
         end,
         function(v) ns.db.opts.liveStay = v end)
     Full(controls.liveStay, 44)
-    controls.minimap = St.Checkbox(body, L["Show minimap button"], function(on)
-        ns.Minimap:SetShown(on)
-    end)
-    Full(controls.minimap, 26)
     controls.sound100 = St.Checkbox(body, L["Play a sound when someone rolls a 100"], function(on)
         ns.db.opts.sound100 = on
     end)
@@ -204,26 +211,7 @@ local function Build()
     Row({ Btn(L["Remove test rolls"], function() ns.ClearTest() end) }, 2)
     EndSection()
 
-    -- History
-    Section("history", L["ROLL HISTORY"])
-    local reset = Btn(L["Delete roll history"], function() StaticPopup_Show("NIBBELZLOOT_RESET") end)
-    reset.danger = true
-    reset:Paint()
-    Row({ Btn(L["Add demo history"], function() ns.AddDemo() end),
-        Btn(L["Remove demo history"], function() ns.ClearDemo() end) })
-    -- Gold per dungeon in chat: all of them with the total, or one dungeon on its own.
-    local goldMenu = St.Dropdown(body, COL_W, 22, function() return L["Gold per dungeon in chat"] end, function()
-        local items = { { L["All dungeons + total"], function() ns.PrintGold() end } }
-        local places = ns.GoldByPlace(ns.db.rolls)
-        table.sort(places, function(a, b) return a.place < b.place end)
-        for _, p in ipairs(places) do
-            local place = p.place
-            items[#items + 1] = { place, function() ns.PrintGoldPlace(place) end }
-        end
-        return items
-    end)
-    Row({ reset, goldMenu })
-    EndSection()
+    -- (The roll history's demo / delete buttons are in its own title bar now.)
 
     -- The other windows, one click away (a block of four).
     Section("windows", L["WINDOWS"])
@@ -278,6 +266,15 @@ local function Build()
         controls.questIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])
     end)
     Row({ controls.questIconMove }, 2)
+    -- When the last item of a quest objective is looted: a hint, and a sound if wanted.
+    controls.questDoneHint = St.Checkbox(body, L["Hint when all items of a quest are looted"], function(on)
+        ns.db.opts.questDoneHint = on
+    end)
+    Full(controls.questDoneHint, 26)
+    controls.questDoneSound = St.Checkbox(body, L["Play a sound then"], function(on)
+        ns.db.opts.questDoneSound = on
+    end)
+    Full(controls.questDoneSound, 26)
     y = y + 8
 
     -- Undermine Reals: blink a Real after a boss that drops one, until you loot it.
@@ -310,7 +307,7 @@ local function Build()
         local on = ns.Reals:SetReminderMoving(not ns.Reals:IsReminderMoving())
         controls.realIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])
     end)
-    Row({ controls.realIconMove, Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) })
+    Row({ controls.realIconMove }, 2)
     EndSection()
 
     -- Loot battle
@@ -323,7 +320,20 @@ local function Build()
         ns.db.opts.battleAnnounce = on
     end)
     Full(controls.battleAnnounce, 26)
-    Row({ Btn(L["Loot battle"], function() ns.Battle:Command() end) }, 2)
+    -- Past battles: a list (right-click one to delete it), or delete them all.
+    local clearBattles = Btn(L["Delete battle history"], function()
+        local n = #(ns.db.battles or {})
+        if n == 0 then return end
+        St.Confirm(format(L["Delete the whole loot battle history (%d battles)? This cannot be undone."], n), function()
+            wipe(ns.db.battles)
+            ns.BattleHistory:Refresh()
+        end)
+    end)
+    clearBattles.danger = true
+    clearBattles:Paint()
+    Row({ Btn(L["Loot battle"], function() ns.Battle:Command() end),
+        Btn(L["Battle history"], function() ns.BattleHistory:Toggle() end) })
+    Row({ clearBattles }, 2)
     EndSection()
 
     -- Others: where the AH value comes from, and the window style (side by side).
@@ -378,6 +388,18 @@ local function Build()
     end)
     Row({ controls.ahSource, controls.style })
     Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
+    -- Gold per dungeon in chat: all of them with the total, or one dungeon on its own.
+    local goldMenu = St.Dropdown(body, COL_W, 22, function() return L["Gold per dungeon in chat"] end, function()
+        local items = { { L["All dungeons + total"], function() ns.PrintGold() end } }
+        local places = ns.GoldByPlace(ns.db.rolls)
+        table.sort(places, function(a, b) return a.place < b.place end)
+        for _, p in ipairs(places) do
+            local place = p.place
+            items[#items + 1] = { place, function() ns.PrintGoldPlace(place) end }
+        end
+        return items
+    end)
+    Row({ goldMenu }, 2)
     EndSection()
 
     local hint = St.Text(content, 10)

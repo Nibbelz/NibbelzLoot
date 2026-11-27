@@ -14,6 +14,21 @@ local SHOW_MAX = 4   -- versions shown at most (the newest first)
 
 -- Newest first. Keep each line short: what changed, and where / how to use it.
 local NOTES = {
+    { "1.6.0",
+        en = {
+            "Classic style reworked to match the WoW Forever interface: game menu frame, red buttons with gold text, Blizzard check boxes and sliders. Pick it in Options > Others > Style.",
+            "New installs: on the first start you choose between the Nibbelz and the Classic style.",
+            "New: loot battle history. Button in the loot battle window or Options > Loot battle. Click a battle for its result, right-click to delete it.",
+            "Options: new category General on top. Roll history buttons (demo, delete) are now in the Roll History window; Gold per dungeon is under Others.",
+            "Quest loot: when the last item of a quest is looted, a short hint shows (sound optional). No more icon for quests that are already done. Options > Loot icons.",
+        },
+        de = {
+            "Neu: Loot-Battle-Verlauf. Button im Loot-Battle-Fenster oder unter Optionen > Loot Battle. Klick auf ein Battle zeigt das Ergebnis, Rechtsklick löscht es.",
+            "Optionen: neue Kategorie Allgemein ganz oben. Die Roll-History-Buttons (Demo, Löschen) sind jetzt im Roll-History-Fenster, Gold pro Dungeon unter Sonstiges.",
+            "Quest-Beute: Ist das letzte Item einer Quest gelootet, erscheint ein kurzer Hinweis (Sound optional). Für erledigte Quests kommt kein Symbol mehr. Optionen > Loot-Symbole.",
+            "Classic-Stil an die WoW-Forever-Oberfläche angepasst: Spielmenü-Rahmen, rote Buttons mit goldener Schrift, Blizzard-Checkboxen und -Schieberegler. Auswahl unter Optionen > Sonstiges > Stil.",
+            "Neuinstallation: Beim ersten Start wählst du zwischen Nibbelz- und Classic-Stil.",
+        } },
     { "1.5.1",
         en = { "Quest item icon: only for quests in your own quest log (no longer your group members' quests), and without the green background." },
         de = { "Quest-Item-Symbol: nur noch für Quests in deinem eigenen Questlog (nicht mehr die der Gruppenmitglieder) und ohne grünen Hintergrund." } },

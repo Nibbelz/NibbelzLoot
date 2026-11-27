@@ -1,5 +1,16 @@
 # Nibbelz Loot
 
+## 1.6.0 (minor)
+
+- Classic style reworked to look like the WoW Forever interface: windows in the game menu's dialog frame (dark, metal corners), the game's red buttons with gold text (white on hover), gold titles and section headers over bronze lines like the quest tracker, Blizzard check boxes and the game's slider knob.
+- Classic style: the metal frame sits around the window, so title bars, buttons and search boxes no longer run into it. Rolls in the Loot Rolls window show the game's roll icon (dice, coin, cross) with the word instead of coloured boxes.
+- Sliders: the coloured bar now reaches exactly to the knob (all styles).
+- First start after installing: a window lets you choose between the Nibbelz style and the Classic style (with a small preview of each). Change it later in Options > Others. `/rolls style` opens it again.
+- Quest loot: when the last item of a quest objective is looted, a short hint shows at the top of the screen ("The Hunt Begins: all Plainstrider Meat looted", or "quest complete!" when nothing is left). Optional sound (off by default). Both switch in Options > Loot icons.
+- Quest loot: the quest item icon no longer shows for an objective that is already done (the quest log is read fresh at the kill).
+- New: loot battle history. The last 30 battles with place, mode, date, players, stake and winner; click one to see its result, right-click to delete it. Open it from the loot battle window's title bar or Options > Loot battle, where "Delete battle history" deletes all of them.
+- Options: new category "General" at the top (minimap button). The "Roll history" category is gone: its buttons (add / remove demo history, delete roll history) are in the Roll History window's title bar now, "Gold per dungeon in chat" is under "Others". The Undermine Reals button under "Loot icons" is removed (it is under "Windows").
+
 ## 1.5.1 (minor)
 
 - Quest loot: the icon and the tooltip line only count items from quests in your own quest log. In a group, the enemy's tooltip also lists your group members' quests; those are ignored now.

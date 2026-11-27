@@ -721,6 +721,17 @@ function History:Init()
         function() ns.Options:Toggle() end)
     gear:SetPoint("RIGHT", frame.close, "LEFT", -8, 0)
     players:SetPoint("RIGHT", gear, "LEFT", -8, 0)
+    -- Delete the history, add / remove the demo history (they used to be in the options).
+    local reset = St.Button(frame.bar, L["Delete roll history"], 120, 18, function()
+        StaticPopup_Show("NIBBELZLOOT_RESET")
+    end)
+    reset.danger = true
+    reset:Paint()
+    reset:SetPoint("RIGHT", players, "LEFT", -14, 0)
+    local demoOff = St.Button(frame.bar, L["Remove demo history"], 130, 18, function() ns.ClearDemo() end)
+    demoOff:SetPoint("RIGHT", reset, "LEFT", -6, 0)
+    local demoOn = St.Button(frame.bar, L["Add demo history"], 120, 18, function() ns.AddDemo() end)
+    demoOn:SetPoint("RIGHT", demoOff, "LEFT", -6, 0)
 
     -- Left
     local left = Inset(frame)
