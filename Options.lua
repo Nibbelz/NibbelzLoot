@@ -35,6 +35,9 @@ local function Apply()
     controls.questIcon:SetChecked(o.questIcon ~= false)
     controls.questIconScale:SetValue(math.floor((o.questIconScale or 1) * 100 + 0.5))
     controls.questIconTime:SetValue(o.questIconTime or 3)
+    controls.realIcon:SetChecked(o.realIcon ~= false)
+    controls.realIconScale:SetValue(math.floor((o.realIconScale or 1) * 100 + 0.5))
+    controls.realIconTime:SetValue(o.realIconTime or 61)
 end
 
 local function Build()
@@ -259,6 +262,39 @@ local function Build()
     Row({ controls.questIconMove }, 2)
     EndSection()
 
+    -- Undermine Reals: blink a Real after a boss that drops one, until you loot it.
+    Section("reals", L["UNDERMINE REALS"])
+    controls.realIcon = St.Checkbox(body, L["Remind me to loot the Real after a boss kill"], function(on)
+        ns.db.opts.realIcon = on
+        if not on and ns.Reals:IsReminderMoving() then
+            ns.Reals:SetReminderMoving(false)
+            controls.realIconMove.text:SetText(L["Move icon"])
+        end
+        if not on then ns.Reals:HideReminder() end
+    end)
+    Full(controls.realIcon, 26)
+    controls.realIconScale = St.Slider(body, L["Icon size"], 50, 250, 10,
+        function(v) return v .. "%" end,
+        function(v)
+            ns.db.opts.realIconScale = v / 100
+            ns.Reals:ApplyReminderScale()
+        end)
+    Full(controls.realIconScale, 44)
+    controls.realIconTime = St.Slider(body, L["Icon shown for"], 1, 61, 1,
+        function(v)
+            if v >= 61 then return L["Until looted"] end
+            return format(L["%d sec"], v)
+        end,
+        function(v) ns.db.opts.realIconTime = v end)
+    Full(controls.realIconTime, 44)
+    Note(L["Right-click the blinking Real to hide it."], 20)
+    controls.realIconMove = Btn(L["Move icon"], function()
+        local on = ns.Reals:SetReminderMoving(not ns.Reals:IsReminderMoving())
+        controls.realIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])
+    end)
+    Row({ controls.realIconMove, Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) })
+    EndSection()
+
     -- Loot battle
     Section("battle", L["LOOT BATTLE"])
     controls.battleOffer = St.Checkbox(body, L["Remind me of the battle when entering a dungeon"], function(on)
@@ -382,6 +418,10 @@ local function Build()
         if ns.QuestMobs:IsMoving() then
             ns.QuestMobs:SetMoving(false)
             controls.questIconMove.text:SetText(L["Move icon"])
+        end
+        if ns.Reals:IsReminderMoving() then
+            ns.Reals:SetReminderMoving(false)
+            controls.realIconMove.text:SetText(L["Move icon"])
         end
     end)
     Layout()

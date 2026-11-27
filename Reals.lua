@@ -170,6 +170,13 @@ for _, d in ipairs(DUNGEONS) do
     end
 end
 
+-- The boss name in the client's language, from NaowhForever's journal when it has one.
+local function BossName(b)
+    local naowh = _G.NaowhForever
+    local names = naowh and naowh.Journal and naowh.Journal.Names and naowh.Journal.Names.npcs
+    return names and names[b.key] or b[2]
+end
+
 -------------------------------------------------------------------------------
 --  Saved state (per character, valid until the daily reset)
 -------------------------------------------------------------------------------
@@ -199,8 +206,10 @@ local function Store()
     if (c.day or 0) < start - 60 then
         c.day = start
         c.bosses = {}
+        c.reminded = {}
         c.total = 0
     end
+    c.reminded = c.reminded or {}
     return c
 end
 
@@ -218,6 +227,7 @@ local function Commit(boss, count, source)
         c.bosses[boss.key] = { n = max(count or 1, e and e.n or 0), t = time() }
     end
     lastCommit = GetTime()
+    if boss then R:Looting(boss) end
     R:Refresh()
 end
 
@@ -248,6 +258,9 @@ end
 local function ScanLoot()
     local n = ns.Plain(GetNumLootItems(), "number") or 0
     for slot = 1, n do
+        -- Any loot window on the reminded boss's corpse ends the reminder.
+        local src = GetLootSourceInfo and NpcFromGuid(GetLootSourceInfo(slot))
+        if src and byNpc[src] then R:Looting(byNpc[src]) end
         if IsReal(slot) then
             local _, _, qty = GetLootSlotInfo(slot)
             qty = ns.Plain(qty, "number") or 1
@@ -271,6 +284,140 @@ local function OnGain(change)
     end
 end
 
+-------------------------------------------------------------------------------
+--  Reminder: after the day's first kill of a boss that drops Reals, a blinking
+--  Real on screen until you loot the boss (or the set time runs out / right-click).
+--  Movable, size and time adjustable, can be switched off (like the quest item icon).
+-------------------------------------------------------------------------------
+-- Encounters that drop a Real once a day (encounter IDs; list as in NaowhForever's
+-- Undermine Real Reminder data).
+local DROPS = {
+    [234] = true, [232] = true, [238] = true, [239] = true, [236] = true, [237] = true, [242] = true,
+    [244] = true, [2790] = true,                                       -- Blackrock Depths
+    [267] = true, [268] = true, [269] = true, [270] = true, [271] = true, [273] = true, [274] = true,
+    [275] = true,                                                      -- Lower Blackrock Spire
+    [3062] = true, [3063] = true, [3068] = true, [3069] = true,        -- Upper Blackrock Spire
+    [2792] = true, [345] = true, [344] = true, [343] = true, [346] = true, [368] = true, [350] = true,
+    [348] = true, [347] = true, [349] = true, [361] = true,            -- Dire Maul
+    [2809] = true, [2813] = true, [2802] = true, [2803] = true, [2808] = true, [2807] = true, [2812] = true,
+    [2806] = true, [2805] = true, [2801] = true, [2804] = true, [2811] = true, [2810] = true, -- Scholomance
+    [472] = true, [2798] = true, [474] = true, [475] = true, [477] = true, [482] = true, [480] = true,
+    [481] = true, [479] = true, [483] = true, [484] = true,            -- Stratholme
+}
+
+local REAL_ICON = "Interface\\Icons\\INV_Misc_Coin_17"
+local STAY = 61                  -- realIconTime: 1-60 seconds, STAY = until looted
+local remind, remindBoss, remindHide = nil, nil, 0
+local remindMoving = false
+
+local function RealIcon()
+    local ok, ci = pcall(C_CurrencyInfo.GetCurrencyInfo, CURRENCY)
+    local icon = ok and type(ci) == "table" and ns.Plain(ci.iconFileID) or nil
+    if not icon and C_Item and C_Item.GetItemIconByID then
+        local okI, tex = pcall(C_Item.GetItemIconByID, ITEM)
+        icon = okI and ns.Plain(tex) or nil
+    end
+    return icon or REAL_ICON
+end
+
+local function CreateReminder()
+    local SIZE = 48
+    remind = CreateFrame("Button", "NibbelzLootRealReminder", UIParent)
+    remind:SetSize(SIZE, SIZE)
+    remind:SetFrameStrata("HIGH")
+    remind:SetClampedToScreen(true)
+    remind:SetMovable(true)
+    remind:RegisterForDrag("LeftButton")
+    remind:RegisterForClicks("RightButtonUp")
+    remind:SetScript("OnDragStart", function(self) if remindMoving then self:StartMoving() end end)
+    remind:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local point, _, relPoint, x, y = self:GetPoint()
+        ns.db.pos.realIcon = { point, relPoint, x, y }
+    end)
+    -- Right-click: dismiss.
+    remind:SetScript("OnClick", function() if not remindMoving then R:HideReminder() end end)
+    local p = ns.db.pos.realIcon
+    if type(p) == "table" and p[1] then
+        remind:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+    else
+        remind:SetPoint("CENTER", UIParent, "CENTER", 0, 230)
+    end
+    remind.border = remind:CreateTexture(nil, "BACKGROUND")
+    remind.border:SetPoint("TOPLEFT", -2, 2)
+    remind.border:SetPoint("BOTTOMRIGHT", 2, -2)
+    remind.border:SetColorTexture(1, 0.82, 0.2, 1)
+    remind.icon = remind:CreateTexture(nil, "ARTWORK")
+    remind.icon:SetAllPoints()
+    remind.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    remind.label = remind:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    remind.label:SetPoint("TOP", remind, "BOTTOM", 0, -4)
+    remind.sub = remind:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    remind.sub:SetPoint("TOP", remind.label, "BOTTOM", 0, -2)
+    remind.moveBg = remind:CreateTexture(nil, "BACKGROUND", nil, -1)
+    remind.moveBg:SetPoint("TOPLEFT", -8, 8)
+    remind.moveBg:SetPoint("BOTTOMRIGHT", 8, -40)
+    remind.moveBg:SetColorTexture(0.05, 0.82, 0.62, 0.25)
+    -- Blink.
+    local blink = remind:CreateAnimationGroup()
+    blink:SetLooping("BOUNCE")
+    local fade = blink:CreateAnimation("Alpha")
+    fade:SetFromAlpha(1)
+    fade:SetToAlpha(0.35)
+    fade:SetDuration(0.6)
+    remind.blink = blink
+    remind:SetScript("OnUpdate", function(self)
+        if not remindMoving and remindHide > 0 and GetTime() >= remindHide then R:HideReminder() end
+    end)
+    remind:Hide()
+end
+
+function R:ShowReminder(boss, preview)
+    if not preview and ns.db.opts.realIcon == false then return end
+    if not remind then CreateReminder() end
+    remindBoss = boss
+    remind:SetScale(ns.db.opts.realIconScale or 1)
+    remind.icon:SetTexture(RealIcon())
+    remind.label:SetText(L["Loot your Real!"])
+    remind.sub:SetText(boss and BossName(boss) or L["Boss"])
+    local t = ns.db.opts.realIconTime or STAY
+    remindHide = (preview or t >= STAY) and 0 or (GetTime() + t)
+    remind.moveBg:SetShown(remindMoving)
+    remind:EnableMouse(true)
+    remind:Show()
+    if remindMoving then remind.blink:Stop() else remind.blink:Play() end
+end
+
+function R:HideReminder()
+    remindBoss = nil
+    if remind then
+        remind.blink:Stop()
+        remind:Hide()
+    end
+end
+
+-- You looted this boss (its corpse's loot window opened): no need to remind any more.
+function R:Looting(boss)
+    if remindBoss and boss == remindBoss and not remindMoving then R:HideReminder() end
+end
+
+-- Options: the icon stays on screen and can be dragged until moving is switched off.
+function R:SetReminderMoving(on)
+    remindMoving = on
+    if on then
+        R:ShowReminder(nil, true)
+    else
+        R:HideReminder()
+    end
+    return remindMoving
+end
+
+function R:IsReminderMoving() return remindMoving end
+
+function R:ApplyReminderScale()
+    if remind then remind:SetScale(ns.db.opts.realIconScale or 1) end
+end
+
 local events = CreateFrame("Frame")
 for _, ev in ipairs({ "LOOT_READY", "LOOT_OPENED", "ENCOUNTER_END", "CURRENCY_DISPLAY_UPDATE", "PLAYER_ENTERING_WORLD" }) do
     pcall(events.RegisterEvent, events, ev)
@@ -284,6 +431,14 @@ events:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         if id and (success == 1 or success == true) then
             local boss = id and byEncounter[id]
             if boss then lastKill, lastKillAt = boss, GetTime() end
+            -- The day's first kill of a boss that drops Reals: remind to loot it.
+            if boss and DROPS[id] and not R:Looted(boss) then
+                local c = Store()
+                if not c.reminded[boss.key] then
+                    c.reminded[boss.key] = true
+                    R:ShowReminder(boss)
+                end
+            end
         end
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         local id, change = ns.Plain(a1, "number"), ns.Plain(a3, "number")
@@ -291,6 +446,7 @@ events:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         R:Refresh(true)
     elseif event == "PLAYER_ENTERING_WORLD" then
         wipe(seenGuid)
+        if not remindMoving then R:HideReminder() end   -- left the dungeon
         R:ResetFolds()   -- a new dungeon: it opens unfolded again
         R:Refresh(true)
     end
@@ -305,12 +461,6 @@ local opened = {}   -- unfolded dungeons (by list index); all folded at first
 local search = ""   -- dungeon or boss name (lower case)
 
 function R:ResetFolds() wipe(opened) end
-
-local function BossName(b)
-    local naowh = _G.NaowhForever
-    local names = naowh and naowh.Journal and naowh.Journal.Names and naowh.Journal.Names.npcs
-    return names and names[b.key] or b[2]
-end
 
 local zoneNames = {}
 local function DungeonName(d)

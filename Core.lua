@@ -236,6 +236,9 @@ local DEFAULTS = {
     questIcon = true,        -- after killing one: the quest item's icon on screen
     questIconScale = 1,
     questIconTime = 3,       -- seconds
+    realIcon = true,         -- after a boss that drops Reals: blink a Real until you loot it (Reals.lua)
+    realIconScale = 1,
+    realIconTime = 61,       -- 1-60 seconds, 61 = until looted
 }
 
 local function InitDB()

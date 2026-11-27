@@ -1,5 +1,9 @@
 # Nibbelz Loot
 
+## 1.4.5 (minor)
+
+- New: Undermine Real reminder. After the day's first kill of a boss that drops a Tarnished Undermine Real, a blinking Real ("Loot your Real!" with the boss name) shows on screen until you loot the boss. Right-click hides it. New options category "Undermine Reals": on/off, icon size (50-250 %), time shown (1-60 seconds or until looted) and "Move icon".
+
 ## 1.4.4 (minor)
 
 - Undermine Reals: in a dungeon, the window opens with that dungeon unfolded (all other dungeons stay folded). Fold it by hand and it stays folded until you enter a dungeon again.
