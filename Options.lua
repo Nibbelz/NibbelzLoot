@@ -199,7 +199,18 @@ local function Build()
     reset:Paint()
     Row({ Btn(L["Add demo history"], function() ns.AddDemo() end),
         Btn(L["Remove demo history"], function() ns.ClearDemo() end) })
-    Row({ reset, Btn(L["Gold per dungeon in chat"], function() ns.PrintGold() end) })
+    -- Gold per dungeon in chat: all of them with the total, or one dungeon on its own.
+    local goldMenu = St.Dropdown(body, COL_W, 22, function() return L["Gold per dungeon in chat"] end, function()
+        local items = { { L["All dungeons + total"], function() ns.PrintGold() end } }
+        local places = ns.GoldByPlace(ns.db.rolls)
+        table.sort(places, function(a, b) return a.place < b.place end)
+        for _, p in ipairs(places) do
+            local place = p.place
+            items[#items + 1] = { place, function() ns.PrintGoldPlace(place) end }
+        end
+        return items
+    end)
+    Row({ reset, goldMenu })
     EndSection()
 
     -- The other windows, one click away (a block of four).

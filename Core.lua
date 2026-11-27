@@ -1209,6 +1209,21 @@ function ns.PrintGold()
     print(format("  |cffffffff%s:|r %s", L["Total"], ns.MoneyPlain(total)))
 end
 
+-- One dungeon on its own: gold won, AH value, items, runs.
+function ns.PrintGoldPlace(place)
+    for _, p in ipairs(ns.GoldByPlace(DB.rolls)) do
+        if p.place == place then
+            ns.Print(format(L["Gold won in %s:"], place))
+            print(format("  %s  (%s, %s, %s)", ns.MoneyPlain(p.gold), format(L["won %d"], p.won),
+                p.items == 1 and L["1 item"] or format(L["%d items"], p.items),
+                p.runs == 1 and L["1 run"] or format(L["%d runs"], p.runs)))
+            if (p.ah or 0) > 0 then print(format("  %s: %s", L["AH value"], ns.MoneyPlain(p.ah))) end
+            return
+        end
+    end
+    ns.Print(format(L["Gold won in %s:"], place) .. " " .. ns.MoneyPlain(0))
+end
+
 -------------------------------------------------------------------------------
 --  Slash commands and addon compartment
 -------------------------------------------------------------------------------

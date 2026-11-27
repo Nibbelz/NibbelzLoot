@@ -1,5 +1,9 @@
 # Nibbelz Loot
 
+## 1.4.3 (minor)
+
+- Options > Roll history: "Gold per dungeon in chat" is now a dropdown. Pick "All dungeons + total" (as before) or a single dungeon to post only its gold, items, runs and AH value.
+
 ## 1.4.2 (minor)
 
 - Undermine Reals: all dungeons start folded (click one to unfold it). New search for a dungeon or boss: matching dungeons unfold, with only the matching bosses when you searched a boss.
