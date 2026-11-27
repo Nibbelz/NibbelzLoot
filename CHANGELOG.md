@@ -1,5 +1,10 @@
 # Nibbelz Loot
 
+## 1.4.7 (minor)
+
+- Undermine Real reminder: now also for the bosses of Blackmaw Hold and Shaper's Terrace (e.g. Blackmaw Behemoth showed "drops no Real" although it gave one).
+- The reminder learns: a boss that gives you a Real but is not on the list yet is remembered and reminds you from then on (for all your characters).
+
 ## 1.4.6 (minor)
 
 - Undermine Real reminder fixed: it now works like NaowhForever's. The day's first kill of a boss that drops a Real (by encounter) shows the blinking Real until you open that boss's loot. It no longer depends on the Reals already counted for the window, and several bosses in a row are remembered.

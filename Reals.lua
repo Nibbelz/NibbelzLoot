@@ -225,6 +225,11 @@ local function Commit(boss, count, source)
         local e = c.bosses[boss.key]
         if e and source ~= "loot" then return end   -- already noted from the loot window
         c.bosses[boss.key] = { n = max(count or 1, e and e.n or 0), t = time() }
+        -- This boss gives Reals: remember it for the reminder (all characters).
+        if source == "loot" or source == "kill" then
+            ns.db.realLearned = ns.db.realLearned or {}
+            for _, id in ipairs(boss[3] or {}) do ns.db.realLearned[id] = boss.key end
+        end
     end
     lastCommit = GetTime()
     if boss then R:Looting(boss) end
@@ -279,7 +284,8 @@ end
 local function OnGain(change)
     if GetTime() - lastCommit < 5 then return end
     if lastKill and GetTime() - lastKillAt < 600 then
-        Commit(lastKill, change, "kill")
+        -- Learn the boss only when the Real came soon after the kill.
+        Commit(lastKill, change, GetTime() - lastKillAt < 180 and "kill" or "late")
         lastKill = nil
     end
 end
@@ -310,7 +316,21 @@ local DROPS = {
     -- Stratholme
     [472] = 10516, [2798] = 11143, [474] = 10808, [475] = 10997, [477] = 10811, [482] = 10435,
     [480] = 10437, [481] = 10438, [479] = 10436, [483] = 10439, [484] = 10440,
+    -- Blackmaw Hold (seen in game: Blackmaw Behemoth gives a Real)
+    [3315] = 247195, [3316] = 247206, [3327] = 247209, [3322] = 247198, [3334] = 247234,
+    [3323] = 247207, [3336] = 247231,
+    -- Shaper's Terrace
+    [3498] = 253201, [3501] = 261813, [3500] = 261812, [3507] = 262127, [3503] = 261974,
+    [3505] = 262081, [3597] = 262297, [3600] = 272561, [3499] = 253218, [3502] = 261809,
 }
+
+-- Does this encounter drop a Real? The list above, plus bosses that gave you one
+-- in game (learned: ns.db.realLearned, encounter ID -> NPC ID, for all characters).
+local function DropNpc(id)
+    if DROPS[id] then return DROPS[id] end
+    local learned = ns.db and ns.db.realLearned
+    return learned and learned[id]
+end
 
 local REAL_ICON = "Interface\\Icons\\INV_Misc_Coin_17"
 local STAY = 61                  -- realIconTime: 1-60 seconds, STAY = until looted
@@ -433,7 +453,7 @@ end
 
 -- A boss died: on its first kill today, remind to loot the Real.
 local function OnBossKill(id, name)
-    local npc = DROPS[id]
+    local npc = DropNpc(id)
     if not npc then
         Debug(format("encounter %d (%s): drops no Real", id, tostring(name)))
         return
