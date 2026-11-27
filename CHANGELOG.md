@@ -9,6 +9,7 @@
 - Quest loot: when the last item of a quest objective is looted, a short hint shows at the top of the screen ("The Hunt Begins: all Plainstrider Meat looted", or "quest complete!" when nothing is left). Optional sound (off by default). Both switch in Options > Loot icons.
 - Quest loot: the quest item icon no longer shows for an objective that is already done (the quest log is read fresh at the kill).
 - New: loot battle history. The last 30 battles with place, mode, date, players, stake and winner; click one to see its result, right-click to delete it. Open it from the loot battle window's title bar or Options > Loot battle, where "Delete battle history" deletes all of them.
+- The "What's new" window shows the 1.6.0 changes once after the update.
 - Options: new category "General" at the top (minimap button). The "Roll history" category is gone: its buttons (add / remove demo history, delete roll history) are in the Roll History window's title bar now, "Gold per dungeon in chat" is under "Others". The Undermine Reals button under "Loot icons" is removed (it is under "Windows").
 
 ## 1.5.1 (minor)
@@ -20,6 +21,7 @@
 
 - New: "What's new" window. After an update it opens once at login with the latest changes in short: what is new or changed and how to use it (up to the last four versions). Open it again any time with `/rolls news`. A fresh install shows nothing.
 - The window has a box "Don't show the changelog any more": ticked, it no longer opens after updates (`/rolls news` still works, untick it there to get it back).
+- `/rolls news` is listed in the `/rolls` help.
 
 ## 1.4.9 (minor)
 
