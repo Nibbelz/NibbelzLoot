@@ -45,18 +45,69 @@ local function LootObjective(text, completed)
     return name ~= "" and name or "?"
 end
 
--- The quest items in a unit's tooltip data that you still need: { "Ghoul Ribs", ... } or nil.
+-------------------------------------------------------------------------------
+--  Your own quest log: the item objectives you still need. In a group the unit
+--  tooltip also lists your group members' quests; only items in this list count.
+-------------------------------------------------------------------------------
+local mine        -- [item name] = true, rebuilt when the quest log changes
+local function MyItems()
+    if mine then return mine end
+    mine = {}
+    local Q = C_QuestLog
+    if Q and Q.GetNumQuestLogEntries and Q.GetInfo and Q.GetQuestObjectives then
+        for i = 1, Q.GetNumQuestLogEntries() or 0 do
+            local info = Q.GetInfo(i)
+            if info and not info.isHeader and info.questID then
+                for _, o in ipairs(Q.GetQuestObjectives(info.questID) or {}) do
+                    if o.type == "item" and not o.finished then
+                        local name = LootObjective(o.text)
+                        if name then mine[name] = true end
+                    end
+                end
+            end
+        end
+    elseif GetNumQuestLogEntries and GetQuestLogLeaderBoard then
+        -- Older quest log API.
+        for i = 1, (GetNumQuestLogEntries()) or 0 do
+            for j = 1, GetNumQuestLeaderBoards(i) or 0 do
+                local text, kind, done = GetQuestLogLeaderBoard(j, i)
+                if kind == "item" and not done then
+                    local name = LootObjective(text)
+                    if name then mine[name] = true end
+                end
+            end
+        end
+    end
+    return mine
+end
+function QM:QuestLogChanged() mine = nil end
+
+local QUEST_TITLE = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.QuestTitle
+local QUEST_PLAYER = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.QuestPlayer
+
+-- The quest items in a unit's tooltip data that YOU still need: { "Ghoul Ribs", ... } or nil.
 local function ItemsFromData(data)
     if type(data) ~= "table" or type(data.lines) ~= "table" then return nil end
+    local own = MyItems()
     local items
+    local other = false   -- below a group member's name: their objectives, not yours
     for i, line in ipairs(data.lines) do
         local name
-        if QUEST_OBJECTIVE then
-            if Plain(line.type) == QUEST_OBJECTIVE then name = LootObjective(line.leftText, Plain(line.completed)) end
+        local kind = Plain(line.type)
+        if QUEST_TITLE and kind == QUEST_TITLE then
+            other = false
+        elseif QUEST_PLAYER and kind == QUEST_PLAYER then
+            other = true
+        elseif QUEST_OBJECTIVE then
+            if kind == QUEST_OBJECTIVE and not other then
+                name = LootObjective(line.leftText, Plain(line.completed))
+            end
         elseif i > 1 then
             -- Old clients without line types: any "x/y" line below the name.
             name = LootObjective(line.leftText)
         end
+        -- Only items from your own quest log.
+        if name and not own[name] then name = nil end
         if name then
             items = items or {}
             items[#items + 1] = name
@@ -166,6 +217,9 @@ local function CreateHolder()
     holder.moveText = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     holder.moveText:SetPoint("BOTTOM", holder, "TOP", 0, 10)
     holder.moveText:SetText(L["Drag to move"])
+    -- Only visible while moving (Options > "Move icon").
+    holder.moveBg:Hide()
+    holder.moveText:Hide()
     slots = {}
     holder:Hide()
     holder:SetScript("OnUpdate", function(self)
@@ -291,7 +345,12 @@ local function CheckDead(unit)
     watched[guid] = nil
     shown[guid] = true
     if not next(watched) then Listen(false) end
-    if Opts().questIcon ~= false and not moving and Enabled() then QM:ShowIcons(w.items) end
+    -- Only items your own quests still need now (one may have been finished since).
+    local own, items = MyItems(), {}
+    for _, name in ipairs(w.items) do
+        if own[name] then items[#items + 1] = name end
+    end
+    if #items > 0 and Opts().questIcon ~= false and not moving and Enabled() then QM:ShowIcons(items) end
 end
 
 -- Forget enemies seen long ago (and the "nothing to loot" notes, so they stay small).
@@ -328,6 +387,7 @@ events:SetScript("OnEvent", function(_, event, unit)
     elseif event == "QUEST_LOG_UPDATE" then
         -- Quests changed: enemies checked before may count now (or no longer).
         wipe(checked)
+        QM:QuestLogChanged()
     elseif event == "PLAYER_ENTERING_WORLD" then
         wipe(watched)
         wipe(shown)

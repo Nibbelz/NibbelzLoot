@@ -1,5 +1,10 @@
 # Nibbelz Loot
 
+## 1.5.1 (minor)
+
+- Quest loot: the icon and the tooltip line only count items from quests in your own quest log. In a group, the enemy's tooltip also lists your group members' quests; those are ignored now.
+- Quest item icon: the green background (and "Drag to move") only shows while you move the icon, not on every kill.
+
 ## 1.5.0 (minor)
 
 - New: "What's new" window. After an update it opens once at login with the latest changes in short: what is new or changed and how to use it (up to the last four versions). Open it again any time with `/rolls news`. A fresh install shows nothing.

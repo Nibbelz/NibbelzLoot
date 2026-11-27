@@ -14,6 +14,9 @@ local SHOW_MAX = 4   -- versions shown at most (the newest first)
 
 -- Newest first. Keep each line short: what changed, and where / how to use it.
 local NOTES = {
+    { "1.5.1",
+        en = { "Quest item icon: only for quests in your own quest log (no longer your group members' quests), and without the green background." },
+        de = { "Quest-Item-Symbol: nur noch für Quests in deinem eigenen Questlog (nicht mehr die der Gruppenmitglieder) und ohne grünen Hintergrund." } },
     { "1.5.0",
         en = {
             "New: this window. After an update it shows what changed. Open it again with /rolls news.",
