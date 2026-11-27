@@ -1,5 +1,10 @@
 # Nibbelz Loot
 
+## 1.5.0 (minor)
+
+- New: "What's new" window. After an update it opens once at login with the latest changes in short: what is new or changed and how to use it (up to the last four versions). Open it again any time with `/rolls news`. A fresh install shows nothing.
+- The window has a box "Don't show the changelog any more": ticked, it no longer opens after updates (`/rolls news` still works, untick it there to get it back).
+
 ## 1.4.9 (minor)
 
 Less CPU:

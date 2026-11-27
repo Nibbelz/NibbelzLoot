@@ -1245,6 +1245,7 @@ local function Help()
     print("  /rolls players - " .. L["group stats: who won how much"])
     print("  /rolls battle - " .. L["loot battle: tip who wins each category"])
     print("  /rolls gold - " .. L["gold won per dungeon in chat"])
+    print("  /rolls news - " .. L["what's new in this version"])
     print("  /rolls test | cleartest - " .. L["preview the window with fake rolls / remove them"])
     print("  /rolls share  (/fairshare) - " .. L["fair share: who gives whom how much"])
     print("  /rolls demo | cleardemo - " .. L["add / remove demo history"])
@@ -1268,6 +1269,8 @@ SlashCmdList.NIBBELZLOOT = function(msg)
         ns.GroupStats:Toggle()
     elseif cmd == "options" or cmd == "config" or cmd == "opt" then
         ns.Options:Toggle()
+    elseif cmd == "news" or cmd == "whatsnew" then
+        ns.WhatsNew:Show(true)   -- the "what's new" window with the latest changes
     elseif cmd == "gold" then
         ns.PrintGold()
     elseif cmd == "test" then
