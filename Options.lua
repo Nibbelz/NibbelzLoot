@@ -89,17 +89,38 @@ local function Build()
     scroll:SetScript("OnMouseWheel", function(self, delta) ScrollTo(self:GetVerticalScroll() - delta * 40) end)
     scroll:SetScript("OnScrollRangeChanged", function(self) ScrollTo(self:GetVerticalScroll()) end)
 
-    local y = 12
-    -- Rows of buttons share the width and grow with the window (see Layout).
-    local rows = {}
-    local function Section(text)
-        local fs = St.Section(content, text)
-        fs:SetPoint("TOPLEFT", PAD, -y)
-        local line = St.Fill(content, { 1, 1, 1, 0.06 }, "BORDER")
+    -- Each category: a header you click to fold it, and a body with its settings.
+    -- Layout() stacks them; folded bodies are hidden (saved in opts.optFolded).
+    local sections = {}
+    local rows = {}       -- button rows share the width and grow with the window
+    local body, y         -- the category being built, and the next free y in it
+    local Layout
+
+    local function Section(key, text)
+        local header = CreateFrame("Button", nil, content)
+        header:SetHeight(20)
+        local arrow = St.Text(header, 11)
+        arrow:SetPoint("LEFT", PAD - 2, 0)
+        arrow:SetWidth(12)
+        local fs = St.Section(header, text)
+        fs:SetPoint("LEFT", arrow, "RIGHT", 2, 0)
+        local line = St.Fill(header, { 1, 1, 1, 0.06 }, "BORDER")
         line:SetPoint("LEFT", fs, "RIGHT", 8, 0)
-        line:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
+        line:SetPoint("RIGHT", header, "RIGHT", -PAD, 0)
         line:SetHeight(1)
-        y = y + 20
+        header:SetScript("OnClick", function()
+            local folded = ns.db.opts.optFolded
+            folded[key] = not folded[key] or nil
+            Layout()
+        end)
+        header:SetScript("OnEnter", function() fs:SetTextColor(St.Accent()) end)
+        header:SetScript("OnLeave", function() fs:SetTextColor(St.SectionColor()) end)
+        body = CreateFrame("Frame", nil, content)
+        y = 2
+        sections[#sections + 1] = { key = key, header = header, arrow = arrow, body = body }
+    end
+    local function EndSection()
+        sections[#sections].h = y + 6
     end
     local function Full(widget, h)
         widget:SetPoint("TOPLEFT", PAD, -y)
@@ -120,19 +141,19 @@ local function Build()
         y = y + 28
     end
     local function Note(text, h)
-        local fs = St.Text(content, 10)
+        local fs = St.Text(body, 10)
         fs:SetPoint("TOPLEFT", PAD, -y)
-        fs:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
+        fs:SetPoint("RIGHT", body, "RIGHT", -PAD, 0)
         fs:SetWordWrap(true)
         fs:SetText(text)
         fs:SetTextColor(1, 1, 1, 0.5)
         y = y + h
     end
-    local function Btn(label, onClick) return St.Button(content, label, COL_W, 22, onClick) end
+    local function Btn(label, onClick) return St.Button(body, label, COL_W, 22, onClick) end
 
     -- Loot roll window
-    Section(L["LOOT ROLL WINDOW"])
-    controls.scale = St.Slider(content, L["Window size"], 60, 150, 5,
+    Section("roll", L["LOOT ROLL WINDOW"])
+    controls.scale = St.Slider(body, L["Window size"], 60, 150, 5,
         function(v) return v .. "%" end,
         function(v)
             ns.db.opts.scale = v / 100
@@ -145,7 +166,7 @@ local function Build()
         end)
     Full(controls.scale, 44)
     -- 0 = never opens by itself, 1-60 s after the last roll, STAY_OPEN = stays open.
-    controls.liveStay = St.Slider(content, L["Window stays open after the last roll"], 0, ns.STAY_OPEN, 1,
+    controls.liveStay = St.Slider(body, L["Window stays open after the last roll"], 0, ns.STAY_OPEN, 1,
         function(v)
             if v <= 0 then return L["Never opens"] end
             if v >= ns.STAY_OPEN then return L["Stays open"] end
@@ -153,15 +174,15 @@ local function Build()
         end,
         function(v) ns.db.opts.liveStay = v end)
     Full(controls.liveStay, 44)
-    controls.minimap = St.Checkbox(content, L["Show minimap button"], function(on)
+    controls.minimap = St.Checkbox(body, L["Show minimap button"], function(on)
         ns.Minimap:SetShown(on)
     end)
     Full(controls.minimap, 26)
-    controls.sound100 = St.Checkbox(content, L["Play a sound when someone rolls a 100"], function(on)
+    controls.sound100 = St.Checkbox(body, L["Play a sound when someone rolls a 100"], function(on)
         ns.db.opts.sound100 = on
     end)
     Full(controls.sound100, 26)
-    controls.hideRollChat = St.Checkbox(content, L["Hide the roll messages in chat"], function(on)
+    controls.hideRollChat = St.Checkbox(body, L["Hide the roll messages in chat"], function(on)
         ns.db.opts.hideRollChat = on
     end)
     Full(controls.hideRollChat, 26)
@@ -169,47 +190,39 @@ local function Build()
     Row({ Btn(L["Show loot roll window"], function() ns.Live:Toggle() end),
         Btn(L["Preview with test rolls"], function() ns.TestRolls() end) })
     Row({ Btn(L["Remove test rolls"], function() ns.ClearTest() end) }, 2)
-    y = y + 8
+    EndSection()
 
     -- History
-    Section(L["ROLL HISTORY"])
+    Section("history", L["ROLL HISTORY"])
     local reset = Btn(L["Delete roll history"], function() StaticPopup_Show("NIBBELZLOOT_RESET") end)
     reset.danger = true
     reset:Paint()
     Row({ Btn(L["Add demo history"], function() ns.AddDemo() end),
         Btn(L["Remove demo history"], function() ns.ClearDemo() end) })
     Row({ reset, Btn(L["Gold per dungeon in chat"], function() ns.PrintGold() end) })
-    y = y + 8
+    EndSection()
 
-    -- Loot battle, and the other windows one click away (a block of four).
-    Section(L["LOOT BATTLE"])
-    controls.battleOffer = St.Checkbox(content, L["Remind me of the battle when entering a dungeon"], function(on)
-        ns.db.opts.battleOffer = on
-    end)
-    Full(controls.battleOffer, 26)
-    controls.battleAnnounce = St.Checkbox(content, L["Post the result in group chat (my battles)"], function(on)
-        ns.db.opts.battleAnnounce = on
-    end)
-    Full(controls.battleAnnounce, 26)
-    Row({ Btn(L["Loot battle"], function() ns.Battle:Command() end),
-        Btn(L["Fair share"], function() ns.Share:Toggle() end) })
+    -- The other windows, one click away (a block of four).
+    Section("windows", L["WINDOWS"])
     Row({ Btn(L["Roll history"], function() ns.History:Toggle() end),
-        Btn(L["Group stats"], function() ns.GroupStats:Toggle() end) })
-    y = y + 8
+        Btn(L["Fair share"], function() ns.Share:Toggle() end) })
+    Row({ Btn(L["Group stats"], function() ns.GroupStats:Toggle() end),
+        Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) })
+    EndSection()
 
-    -- Quests and dungeon loot: enemies to loot for a quest, the daily Undermine Reals.
-    Section(L["QUEST LOOT"])
-    controls.questDungeon = St.Checkbox(content, L["Mark enemies to loot for a quest in dungeons"], function(on)
+    -- Quest loot: enemies to loot for a quest (tooltip line, icon after the kill).
+    Section("quest", L["QUEST LOOT"])
+    controls.questDungeon = St.Checkbox(body, L["Mark enemies to loot for a quest in dungeons"], function(on)
         ns.db.opts.questLootDungeon = on
     end)
     Full(controls.questDungeon, 26)
-    controls.questWorld = St.Checkbox(content, L["Mark enemies to loot for a quest outdoors"], function(on)
+    controls.questWorld = St.Checkbox(body, L["Mark enemies to loot for a quest outdoors"], function(on)
         ns.db.opts.questLootWorld = on
     end)
     Full(controls.questWorld, 26)
     Note(L["A line in the tooltip shows enemies that drop an item your quest still needs."], 34)
     -- After killing one: the quest item's icon pops up on screen.
-    controls.questIcon = St.Checkbox(content, L["Show the quest item's icon after a kill"], function(on)
+    controls.questIcon = St.Checkbox(body, L["Show the quest item's icon after a kill"], function(on)
         ns.db.opts.questIcon = on
         if not on and ns.QuestMobs:IsMoving() then
             ns.QuestMobs:SetMoving(false)
@@ -217,34 +230,46 @@ local function Build()
         end
     end)
     Full(controls.questIcon, 26)
-    controls.questIconScale = St.Slider(content, L["Icon size"], 50, 250, 10,
+    controls.questIconScale = St.Slider(body, L["Icon size"], 50, 250, 10,
         function(v) return v .. "%" end,
         function(v)
             ns.db.opts.questIconScale = v / 100
             ns.QuestMobs:ApplyScale()
         end)
     Full(controls.questIconScale, 44)
-    controls.questIconTime = St.Slider(content, L["Icon shown for"], 1, 10, 1,
+    controls.questIconTime = St.Slider(body, L["Icon shown for"], 1, 10, 1,
         function(v) return format(L["%d sec"], v) end,
         function(v) ns.db.opts.questIconTime = v end)
     Full(controls.questIconTime, 44)
-    controls.questIconMove = Btn(L["Move icon"], function(self)
+    controls.questIconMove = Btn(L["Move icon"], function()
         local on = ns.QuestMobs:SetMoving(not ns.QuestMobs:IsMoving())
         controls.questIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])
     end)
     Row({ controls.questIconMove }, 2)
-    Row({ Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) }, 2)
-    y = y + 8
+    EndSection()
+
+    -- Loot battle
+    Section("battle", L["LOOT BATTLE"])
+    controls.battleOffer = St.Checkbox(body, L["Remind me of the battle when entering a dungeon"], function(on)
+        ns.db.opts.battleOffer = on
+    end)
+    Full(controls.battleOffer, 26)
+    controls.battleAnnounce = St.Checkbox(body, L["Post the result in group chat (my battles)"], function(on)
+        ns.db.opts.battleAnnounce = on
+    end)
+    Full(controls.battleAnnounce, 26)
+    Row({ Btn(L["Loot battle"], function() ns.Battle:Command() end) }, 2)
+    EndSection()
 
     -- Others: where the AH value comes from, and the window style (side by side).
-    Section(L["OTHERS"])
+    Section("others", L["OTHERS"])
     local function SourceLabel(key)
         for _, src in ipairs(ns.AH_SOURCES) do
             if src.key == key then return src.label end
         end
         return L["Automatic"]
     end
-    controls.ahSource = St.Dropdown(content, COL_W, 22, function()
+    controls.ahSource = St.Dropdown(body, COL_W, 22, function()
         return L["AH prices: "] .. SourceLabel(ns.db.opts.ahSource or "auto")
     end, function()
         local cur = ns.db.opts.ahSource or "auto"
@@ -271,7 +296,7 @@ local function Build()
         end
         return L[St.THEMES[1].label]
     end
-    controls.style = St.Dropdown(content, COL_W, 22, function()
+    controls.style = St.Dropdown(body, COL_W, 22, function()
         return L["Style: "] .. StyleLabel(ns.db.opts.theme)
     end, function()
         local items = {}
@@ -288,20 +313,43 @@ local function Build()
     end)
     Row({ controls.ahSource, controls.style })
     Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
+    EndSection()
 
     local hint = St.Text(content, 10)
-    hint:SetPoint("TOPLEFT", PAD, -y)
-    hint:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
     hint:SetWordWrap(true)
     hint:SetText("/nl   ·   /rolls   ·   /rollhistory   ·   /lootbattle   ·   /fairshare   ·   /reals   ·   /rolls options")
     hint:SetTextColor(1, 1, 1, 0.35)
-    y = y + 30
-    content:SetHeight(y)
 
-    -- Content and button rows follow the window width.
-    local function Layout()
+    -- Stack the categories (folded ones show just their header) and size the rows.
+    Layout = function()
         local width = frame:GetWidth()
         content:SetWidth(width)
+        local folded = ns.db.opts.optFolded
+        local cy = 10
+        for _, s in ipairs(sections) do
+            s.header:ClearAllPoints()
+            s.header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -cy)
+            s.header:SetPoint("RIGHT", content, "RIGHT", 0, 0)
+            cy = cy + 20
+            local open = not folded[s.key]
+            s.arrow:SetText(open and "-" or "+")
+            s.arrow:SetTextColor(1, 1, 1, 0.5)
+            s.body:ClearAllPoints()
+            if open then
+                s.body:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -cy)
+                s.body:SetPoint("RIGHT", content, "RIGHT", 0, 0)
+                s.body:SetHeight(s.h)
+                s.body:Show()
+                cy = cy + s.h
+            else
+                s.body:Hide()
+                cy = cy + 6
+            end
+        end
+        hint:ClearAllPoints()
+        hint:SetPoint("TOPLEFT", content, "TOPLEFT", PAD, -(cy + 4))
+        hint:SetPoint("RIGHT", content, "RIGHT", -PAD, 0)
+        content:SetHeight(cy + 34)
         local inner = width - PAD * 2
         for _, r in ipairs(rows) do
             local w = (inner - 8 * (r.slots - 1)) / r.slots
@@ -309,12 +357,13 @@ local function Build()
         end
         ScrollTo(scroll:GetVerticalScroll())
     end
-    local fullH = y + BAR + BOTTOM
-    frame.defaultH = min(DEFAULT_H, fullH)
-    frame:SetHeight(frame.defaultH)
+
+    ns.db.opts.optFolded = ns.db.opts.optFolded or {}
+    frame.defaultH = DEFAULT_H
+    frame:SetHeight(DEFAULT_H)
     -- OnShow first: St.Resizable and the layout hook into it afterwards.
     frame:SetScript("OnShow", Apply)
-    St.Resizable(frame, W, 220, 760, fullH, Layout)
+    St.Resizable(frame, W, 220, 760, 1200, Layout)
     frame:HookScript("OnSizeChanged", Layout)
     frame:HookScript("OnShow", function() C_Timer.After(0, Layout) end)
     -- Closing the options ends moving the quest item icon.

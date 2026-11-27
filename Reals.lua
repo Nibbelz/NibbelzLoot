@@ -300,7 +300,8 @@ end)
 -------------------------------------------------------------------------------
 local W, H = 400, 520
 local frame, list, info, hideCheck
-local closed = {}   -- collapsed dungeons (by list index)
+local opened = {}   -- unfolded dungeons (by list index); all folded at first
+local search = ""   -- dungeon or boss name (lower case)
 
 local function BossName(b)
     local naowh = _G.NaowhForever
@@ -358,14 +359,27 @@ local function Build()
         end
         today = today + got
         bossesDone = bossesDone + done
-        rows[#rows + 1] = { kind = "hdr", h = 26, d = d, idx = i, done = done, total = total, here = d[2] == here }
-        if not closed[i] then
-            for _, b in ipairs(d[4]) do
-                local e = R:Looted(b)
-                if not (hide and e) then rows[#rows + 1] = { kind = "boss", h = 22, b = b, e = e } end
+        -- Search: a matching dungeon shows all its bosses, else only the matching bosses.
+        local dungeonHit = search == "" or DungeonName(d):lower():find(search, 1, true) ~= nil
+            or d[1]:lower():find(search, 1, true) ~= nil
+        local bosses = {}
+        for _, b in ipairs(d[4]) do
+            local e = R:Looted(b)
+            local hit = dungeonHit or BossName(b):lower():find(search, 1, true) ~= nil
+                or b[2]:lower():find(search, 1, true) ~= nil
+            if hit and not (hide and e) then bosses[#bosses + 1] = { kind = "boss", h = 22, b = b, e = e } end
+        end
+        if dungeonHit or #bosses > 0 then
+            -- While searching, matches are unfolded; otherwise only what you opened.
+            local open = (search ~= "") or opened[i] == true
+            rows[#rows + 1] = { kind = "hdr", h = 26, d = d, idx = i, done = done, total = total,
+                here = d[2] == here, open = open }
+            if open then
+                for _, r in ipairs(bosses) do rows[#rows + 1] = r end
             end
         end
     end
+    if #rows == 0 then rows[1] = { kind = "empty", h = 40 } end
     return rows, today, bossesDone
 end
 
@@ -382,7 +396,7 @@ local function Make(l)
     row:SetScript("OnClick", function(self)
         local item = self.item
         if item and item.kind == "hdr" then
-            closed[item.idx] = not closed[item.idx] or nil
+            opened[item.idx] = not opened[item.idx] or nil
             R:Refresh(true)
         end
     end)
@@ -413,11 +427,18 @@ local function Fill(row, item)
     row.sep:Hide()
     row.check:Hide()
     row:PaintState(false)
+    if item.kind == "empty" then
+        row.name:SetPoint("CENTER")
+        row.name:SetText(L["Nothing matches"])
+        row.name:SetTextColor(1, 1, 1, 0.45)
+        row.value:SetText("")
+        return
+    end
     if item.kind == "hdr" then
         row.name:SetPoint("LEFT", 8, 0)
         row.name:SetPoint("RIGHT", row, "RIGHT", -70, 0)
         local r, g, b = St.Accent()
-        row.name:SetText((closed[item.idx] and "+ " or "- ") .. DungeonName(item.d)
+        row.name:SetText((item.open and "- " or "+ ") .. DungeonName(item.d)
             .. (item.here and ("  |cff9a9a9a(" .. L["you are here"] .. ")|r") or ""))
         row.name:SetTextColor(r, g, b, 1)
         row.value:SetText(format("%d / %d", item.done, item.total))
@@ -499,7 +520,16 @@ local function Init()
         R:Refresh(true)
     end)
     hideCheck:SetPoint("TOPLEFT", 8, -58)
-    hideCheck:SetWidth(220)
+    hideCheck:SetWidth(180)
+
+    local searchBox = St.Search(frame, 170, 20, L["Search dungeon or boss"], function(text)
+        text = (text or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if text ~= search then
+            search = text
+            R:Refresh()
+        end
+    end)
+    searchBox:SetPoint("TOPRIGHT", -8, -58)
 
     local inset = CreateFrame("Frame", nil, frame)
     inset:SetPoint("TOPLEFT", 8, -86)

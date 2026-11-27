@@ -1,5 +1,11 @@
 # Nibbelz Loot
 
+## 1.4.2 (minor)
+
+- Undermine Reals: all dungeons start folded (click one to unfold it). New search for a dungeon or boss: matching dungeons unfold, with only the matching bosses when you searched a boss.
+- Options: every category can be folded with a click on its title (remembered).
+- Options: new category "Windows" with Roll history, Fair share, Group stats and Undermine Reals. New order: Loot roll window, Roll history, Windows, Quest loot, Loot battle, Others.
+
 ## 1.4.1 (minor)
 
 - Quest loot: the bag icon next to the nameplates is removed again (it could sit in the wrong place with nameplate addons). Enemies to loot for a quest are still marked in their tooltip.
