@@ -260,7 +260,7 @@ local function ScanLoot()
     for slot = 1, n do
         -- Any loot window on the reminded boss's corpse ends the reminder.
         local src = GetLootSourceInfo and NpcFromGuid(GetLootSourceInfo(slot))
-        if src and byNpc[src] then R:Looting(byNpc[src]) end
+        if src then R:LootedNpc(src) end
         if IsReal(slot) then
             local _, _, qty = GetLootSlotInfo(slot)
             qty = ns.Plain(qty, "number") or 1
@@ -289,25 +289,37 @@ end
 --  Real on screen until you loot the boss (or the set time runs out / right-click).
 --  Movable, size and time adjustable, can be switched off (like the quest item icon).
 -------------------------------------------------------------------------------
--- Encounters that drop a Real once a day (encounter IDs; list as in NaowhForever's
--- Undermine Real Reminder data).
+-- Encounters that drop a Real once a day: encounter ID -> the boss's NPC ID (whose
+-- corpse you loot). The list as in NaowhForever's Undermine Real Reminder data.
 local DROPS = {
-    [234] = true, [232] = true, [238] = true, [239] = true, [236] = true, [237] = true, [242] = true,
-    [244] = true, [2790] = true,                                       -- Blackrock Depths
-    [267] = true, [268] = true, [269] = true, [270] = true, [271] = true, [273] = true, [274] = true,
-    [275] = true,                                                      -- Lower Blackrock Spire
-    [3062] = true, [3063] = true, [3068] = true, [3069] = true,        -- Upper Blackrock Spire
-    [2792] = true, [345] = true, [344] = true, [343] = true, [346] = true, [368] = true, [350] = true,
-    [348] = true, [347] = true, [349] = true, [361] = true,            -- Dire Maul
-    [2809] = true, [2813] = true, [2802] = true, [2803] = true, [2808] = true, [2807] = true, [2812] = true,
-    [2806] = true, [2805] = true, [2801] = true, [2804] = true, [2811] = true, [2810] = true, -- Scholomance
-    [472] = true, [2798] = true, [474] = true, [475] = true, [477] = true, [482] = true, [480] = true,
-    [481] = true, [479] = true, [483] = true, [484] = true,            -- Stratholme
+    -- Blackrock Depths
+    [234] = 9056, [232] = 9017, [238] = 9537, [239] = 9502, [236] = 9033, [237] = 8983,
+    [242] = 9156, [244] = 9938, [2790] = 9019,
+    -- Lower Blackrock Spire
+    [267] = 9196, [268] = 9236, [269] = 9237, [270] = 10596, [271] = 10584, [273] = 10268,
+    [274] = 10220, [275] = 9568,
+    -- Upper Blackrock Spire
+    [3062] = 9816, [3063] = 10429, [3068] = 10430, [3069] = 10363,
+    -- Dire Maul
+    [2792] = 14354, [345] = 14327, [344] = 13280, [343] = 11490, [346] = 11492, [368] = 11501,
+    [350] = 11489, [348] = 11487, [347] = 11488, [349] = 11496, [361] = 11486,
+    -- Scholomance
+    [2809] = 10433, [2813] = 10432, [2802] = 11261, [2803] = 10505, [2808] = 10901, [2807] = 10504,
+    [2812] = 10507, [2806] = 10502, [2805] = 10506, [2801] = 1853, [2804] = 10503, [2811] = 11622,
+    [2810] = 10508,
+    -- Stratholme
+    [472] = 10516, [2798] = 11143, [474] = 10808, [475] = 10997, [477] = 10811, [482] = 10435,
+    [480] = 10437, [481] = 10438, [479] = 10436, [483] = 10439, [484] = 10440,
 }
 
 local REAL_ICON = "Interface\\Icons\\INV_Misc_Coin_17"
 local STAY = 61                  -- realIconTime: 1-60 seconds, STAY = until looted
-local remind, remindBoss, remindHide = nil, nil, 0
+local remind, remindHide = nil, 0
+local pending = {}               -- NPC ID -> boss name: killed, not looted yet
+
+local function Debug(msg)
+    if ns.db and ns.db.opts.realDebug then ns.Print("|cff9a9a9a[Reals]|r " .. msg) end
+end
 local remindMoving = false
 
 local function RealIcon()
@@ -372,14 +384,18 @@ local function CreateReminder()
     remind:Hide()
 end
 
-function R:ShowReminder(boss, preview)
+-- name: the boss to show under the icon (nil = the first one still pending).
+function R:ShowReminder(name, preview)
     if not preview and ns.db.opts.realIcon == false then return end
     if not remind then CreateReminder() end
-    remindBoss = boss
+    if not name then
+        local _, n = next(pending)
+        name = n
+    end
     remind:SetScale(ns.db.opts.realIconScale or 1)
     remind.icon:SetTexture(RealIcon())
     remind.label:SetText(L["Loot your Real!"])
-    remind.sub:SetText(boss and BossName(boss) or L["Boss"])
+    remind.sub:SetText(name or L["Boss"])
     local t = ns.db.opts.realIconTime or STAY
     remindHide = (preview or t >= STAY) and 0 or (GetTime() + t)
     remind.moveBg:SetShown(remindMoving)
@@ -388,17 +404,62 @@ function R:ShowReminder(boss, preview)
     if remindMoving then remind.blink:Stop() else remind.blink:Play() end
 end
 
-function R:HideReminder()
-    remindBoss = nil
+function R:HideReminder(keepPending)
+    if not keepPending then wipe(pending) end
     if remind then
         remind.blink:Stop()
         remind:Hide()
     end
 end
 
--- You looted this boss (its corpse's loot window opened): no need to remind any more.
+-- A loot window on this NPC's corpse: that boss is looted, no need to remind any more.
+function R:LootedNpc(npc)
+    if not (npc and pending[npc]) then return end
+    pending[npc] = nil
+    Debug("looted " .. npc)
+    if remindMoving then return end
+    if next(pending) then
+        R:ShowReminder()          -- another boss is still waiting
+    else
+        R:HideReminder()
+    end
+end
+
+-- Kept for the loot detection (a Real seen on this boss).
 function R:Looting(boss)
-    if remindBoss and boss == remindBoss and not remindMoving then R:HideReminder() end
+    local npcs = type(boss[1]) == "table" and boss[1] or { boss[1] }
+    for _, npc in ipairs(npcs) do R:LootedNpc(npc) end
+end
+
+-- A boss died: on its first kill today, remind to loot the Real.
+local function OnBossKill(id, name)
+    local npc = DROPS[id]
+    if not npc then
+        Debug(format("encounter %d (%s): drops no Real", id, tostring(name)))
+        return
+    end
+    local c = Store()
+    if c.reminded[id] then
+        Debug(format("encounter %d (%s): already killed today", id, tostring(name)))
+        return
+    end
+    c.reminded[id] = true
+    local boss = byNpc[npc]
+    pending[npc] = boss and BossName(boss) or name or "?"
+    Debug(format("encounter %d (%s): reminder", id, tostring(name)))
+    R:ShowReminder(pending[npc])
+end
+
+-- /reals test: show the reminder for a few seconds.
+function R:TestReminder()
+    R:ShowReminder(L["Boss"], true)
+    remindHide = GetTime() + 8
+end
+
+-- /reals debug: print what happens on boss kills.
+function R:ToggleDebug()
+    ns.db.opts.realDebug = not ns.db.opts.realDebug or nil
+    ns.Print("Reals debug: " .. (ns.db.opts.realDebug and "on" or "off"))
 end
 
 -- Options: the icon stays on screen and can be dragged until moving is switched off.
@@ -428,17 +489,11 @@ events:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         ScanLoot()
     elseif event == "ENCOUNTER_END" then
         local id, success = ns.Plain(a1, "number"), ns.Plain(a5)
+        Debug(format("ENCOUNTER_END %s %s success=%s", tostring(id), tostring(ns.Plain(a2)), tostring(success)))
         if id and (success == 1 or success == true) then
-            local boss = id and byEncounter[id]
+            local boss = byEncounter[id]
             if boss then lastKill, lastKillAt = boss, GetTime() end
-            -- The day's first kill of a boss that drops Reals: remind to loot it.
-            if boss and DROPS[id] and not R:Looted(boss) then
-                local c = Store()
-                if not c.reminded[boss.key] then
-                    c.reminded[boss.key] = true
-                    R:ShowReminder(boss)
-                end
-            end
+            OnBossKill(id, ns.Plain(a2, "string"))
         end
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         local id, change = ns.Plain(a1, "number"), ns.Plain(a3, "number")
@@ -446,7 +501,7 @@ events:SetScript("OnEvent", function(_, event, a1, a2, a3, a4, a5)
         R:Refresh(true)
     elseif event == "PLAYER_ENTERING_WORLD" then
         wipe(seenGuid)
-        if not remindMoving then R:HideReminder() end   -- left the dungeon
+        if not remindMoving and not IsInInstance() then R:HideReminder() end   -- left the dungeon
         R:ResetFolds()   -- a new dungeon: it opens unfolded again
         R:Refresh(true)
     end

@@ -1,5 +1,12 @@
 # Nibbelz Loot
 
+## 1.4.6 (minor)
+
+- Undermine Real reminder fixed: it now works like NaowhForever's. The day's first kill of a boss that drops a Real (by encounter) shows the blinking Real until you open that boss's loot. It no longer depends on the Reals already counted for the window, and several bosses in a row are remembered.
+- New: `/reals test` shows the reminder for a few seconds, `/reals debug` prints every boss kill and what the reminder did in chat.
+- Options: "Quest loot" and "Undermine Reals" are now one category, "Loot icons".
+- Options: the addon version is shown top right.
+
 ## 1.4.5 (minor)
 
 - New: Undermine Real reminder. After the day's first kill of a boss that drops a Tarnished Undermine Real, a blinking Real ("Loot your Real!" with the boss name) shows on screen until you loot the boss. Right-click hides it. New options category "Undermine Reals": on/off, icon size (50-250 %), time shown (1-60 seconds or until looted) and "Move icon".

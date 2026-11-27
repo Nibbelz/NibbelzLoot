@@ -1,7 +1,7 @@
 -- Options.lua: the options window. Everything the /rolls commands do, as switches,
 -- sliders and buttons. Also listed under the game's Options > AddOns.
 -- The content scrolls (mouse wheel); the window can be resized at the corner.
-local _, ns = ...
+local ADDON_NAME, ns = ...
 local St, L = ns.St, ns.L
 
 local format, max, min = string.format, math.max, math.min
@@ -55,6 +55,15 @@ local function Build()
     frame.title:ClearAllPoints()
     frame.title:SetPoint("LEFT", logo, "RIGHT", 6, 0)
     frame.title:SetText("|cffffd100Nibbelz|r Loot  |cff9a9a9a" .. L["Options"] .. "|r")
+    -- The addon version, top right (left of the close button).
+    local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local version = getMeta and getMeta(ADDON_NAME, "Version")
+    if version then
+        local v = St.Text(frame.bar, 10, "RIGHT")
+        v:SetPoint("RIGHT", -34, 0)
+        v:SetText("v" .. version)
+        v:SetTextColor(1, 1, 1, 0.45)
+    end
 
     -- Everything below the title bar scrolls; a thin bar on the right shows where.
     local scroll = CreateFrame("ScrollFrame", nil, frame)
@@ -224,8 +233,17 @@ local function Build()
         Btn(L["Undermine Reals"], function() ns.Reals:Toggle() end) })
     EndSection()
 
-    -- Quest loot: enemies to loot for a quest (tooltip line, icon after the kill).
-    Section("quest", L["QUEST LOOT"])
+    -- Loot icons: quest items to loot (tooltip line, icon after the kill) and the
+    -- Undermine Real reminder after a boss kill.
+    local function SubTitle(text)
+        local fs = St.Text(body, 11)
+        fs:SetPoint("TOPLEFT", PAD, -y)
+        fs:SetText(text)
+        fs:SetTextColor(1, 1, 1, 0.9)
+        y = y + 20
+    end
+    Section("lootIcons", L["LOOT ICONS"])
+    SubTitle(L["Quest loot"])
     controls.questDungeon = St.Checkbox(body, L["Mark enemies to loot for a quest in dungeons"], function(on)
         ns.db.opts.questLootDungeon = on
     end)
@@ -260,10 +278,10 @@ local function Build()
         controls.questIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])
     end)
     Row({ controls.questIconMove }, 2)
-    EndSection()
+    y = y + 8
 
     -- Undermine Reals: blink a Real after a boss that drops one, until you loot it.
-    Section("reals", L["UNDERMINE REALS"])
+    SubTitle(L["Undermine Reals"])
     controls.realIcon = St.Checkbox(body, L["Remind me to loot the Real after a boss kill"], function(on)
         ns.db.opts.realIcon = on
         if not on and ns.Reals:IsReminderMoving() then
@@ -287,7 +305,7 @@ local function Build()
         end,
         function(v) ns.db.opts.realIconTime = v end)
     Full(controls.realIconTime, 44)
-    Note(L["Right-click the blinking Real to hide it."], 20)
+    Note(L["Right-click the blinking Real to hide it. /reals test shows it, /reals debug prints boss kills in chat."], 30)
     controls.realIconMove = Btn(L["Move icon"], function()
         local on = ns.Reals:SetReminderMoving(not ns.Reals:IsReminderMoving())
         controls.realIconMove.text:SetText(on and L["Done moving"] or L["Move icon"])

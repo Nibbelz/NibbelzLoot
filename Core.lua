@@ -1339,7 +1339,16 @@ SLASH_NIBBELZLOOTHISTORY1 = "/rollhistory"
 SlashCmdList.NIBBELZLOOTHISTORY = function() ns.History:Toggle() end
 
 SLASH_NIBBELZLOOTREALS1 = "/reals"
-SlashCmdList.NIBBELZLOOTREALS = function() ns.Reals:Toggle() end
+SlashCmdList.NIBBELZLOOTREALS = function(msg)
+    msg = (msg or ""):lower()
+    if msg == "test" then
+        ns.Reals:TestReminder()     -- show the Real reminder for a few seconds
+    elseif msg == "debug" then
+        ns.Reals:ToggleDebug()      -- print what happens on boss kills
+    else
+        ns.Reals:Toggle()
+    end
+end
 
 function NibbelzLoot_OnAddonCompartmentClick(_, button)
     if IsControlKeyDown() then
