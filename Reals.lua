@@ -565,6 +565,7 @@ end
 
 local function Build()
     local hide = ns.db.opts.realsHideLooted
+    local looted = Store().bosses   -- once per rebuild, not once per boss
     local here = CurrentInstance()
     local order = {}
     for i, d in ipairs(DUNGEONS) do order[#order + 1] = i end
@@ -579,7 +580,7 @@ local function Build()
         local d = DUNGEONS[i]
         local done, total, got = 0, 0, 0
         for _, b in ipairs(d[4]) do
-            local e = R:Looted(b)
+            local e = looted[b.key]
             if not b[5] then total = total + 1 end
             if e then
                 done = done + (b[5] and 0 or 1)
@@ -593,7 +594,7 @@ local function Build()
             or d[1]:lower():find(search, 1, true) ~= nil
         local bosses = {}
         for _, b in ipairs(d[4]) do
-            local e = R:Looted(b)
+            local e = looted[b.key]
             local hit = dungeonHit or BossName(b):lower():find(search, 1, true) ~= nil
                 or b[2]:lower():find(search, 1, true) ~= nil
             if hit and not (hide and e) then bosses[#bosses + 1] = { kind = "boss", h = 22, b = b, e = e } end

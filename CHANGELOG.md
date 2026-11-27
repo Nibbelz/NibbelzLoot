@@ -1,5 +1,13 @@
 # Nibbelz Loot
 
+## 1.4.9 (minor)
+
+Less CPU:
+- Quest loot: every enemy is looked at once (until your quest log changes) instead of on every mouseover and nameplate. The death checks (health, flags, nameplates) only listen while a quest enemy is being watched, and only to your target's health instead of every unit's.
+- Quest loot tooltip line: uses the tooltip's own data instead of reading the unit's tooltip a second time.
+- Player loot history: the "hover" tooltip mode no longer runs code every frame on every row, only on the row under the mouse.
+- Undermine Reals window: reads the saved state once per rebuild instead of twice per boss.
+
 ## 1.4.8 (minor)
 
 - Loot icons: the quest item icon and the Undermine Real reminder look the same now: same size, a frame in the addon's accent colour (follows the window style), a gold line on top ("Loot it for your quest" / "Loot your Real!") and a white line with the item or boss.

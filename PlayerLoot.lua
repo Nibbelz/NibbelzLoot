@@ -124,15 +124,15 @@ local function Make(l)
     row:SetScript("OnEnter", function(self)
         self:PaintState(false)
         if self.item and self.item.rec then ItemTip(self, self.item.rec) end
+        -- "hover" mode: the game may add the comparison later (Shift, always-compare):
+        -- keep it off, but only while the mouse is on this row.
+        if TipMode() == "hover" then self:SetScript("OnUpdate", HideCompare) end
     end)
     row:SetScript("OnLeave", function(self)
+        self:SetScript("OnUpdate", nil)
         self:PaintState(false)
         GameTooltip:Hide()
         HideCompare()
-    end)
-    -- "hover" mode: the game may add the comparison later (Shift, always-compare): keep it off.
-    row:SetScript("OnUpdate", function(self)
-        if TipMode() == "hover" and self:IsMouseOver() then HideCompare() end
     end)
     return row
 end

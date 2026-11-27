@@ -45,15 +45,9 @@ local function LootObjective(text, completed)
     return name ~= "" and name or "?"
 end
 
--- The quest items this enemy drops that you still need: { "Ghoul Ribs", ... } or nil.
-function QM:Needs(unit)
-    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
-    local ok, enemy = pcall(UnitCanAttack, "player", unit)
-    if not ok or Plain(enemy, "boolean") ~= true then return nil end
-    local okP, isPlayer = pcall(UnitIsPlayer, unit)
-    if okP and Plain(isPlayer, "boolean") then return nil end
-    local okT, data = pcall(C_TooltipInfo.GetUnit, unit)
-    if not okT or type(data) ~= "table" or type(data.lines) ~= "table" then return nil end
+-- The quest items in a unit's tooltip data that you still need: { "Ghoul Ribs", ... } or nil.
+local function ItemsFromData(data)
+    if type(data) ~= "table" or type(data.lines) ~= "table" then return nil end
     local items
     for i, line in ipairs(data.lines) do
         local name
@@ -71,14 +65,29 @@ function QM:Needs(unit)
     return items
 end
 
+local function IsEnemyNpc(unit)
+    local ok, enemy = pcall(UnitCanAttack, "player", unit)
+    if not ok or Plain(enemy, "boolean") ~= true then return false end
+    local okP, isPlayer = pcall(UnitIsPlayer, unit)
+    return not (okP and Plain(isPlayer, "boolean"))
+end
+
+-- The quest items this enemy drops that you still need: { "Ghoul Ribs", ... } or nil.
+function QM:Needs(unit)
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) or not IsEnemyNpc(unit) then return nil end
+    local okT, data = pcall(C_TooltipInfo.GetUnit, unit)
+    return okT and ItemsFromData(data) or nil
+end
+
 -------------------------------------------------------------------------------
 --  Tooltip line
 -------------------------------------------------------------------------------
-local function OnUnitTooltip(tooltip)
+-- Uses the tooltip's own data (no second tooltip scan for the same unit).
+local function OnUnitTooltip(tooltip, data)
     if tooltip ~= GameTooltip or not Enabled() then return end
     local ok, _, unit = pcall(tooltip.GetUnit, tooltip)
     unit = ok and Plain(unit, "string") or nil
-    if unit and QM:Needs(unit) then
+    if unit and IsEnemyNpc(unit) and ItemsFromData(data) then
         tooltip:AddLine("|T" .. ICON .. ":14:14:0:0:64:64:5:59:5:59|t |cff0cd29f" .. L["Loot it for your quest"] .. "|r")
     end
 end
@@ -242,13 +251,35 @@ end
 -------------------------------------------------------------------------------
 local watched = {}   -- guid -> { items, seen = time }
 local shown = {}     -- guid -> true (only once per enemy)
+local checked = {}   -- guid -> true: looked at, nothing to loot (until the quest log changes)
+local deathEvents    -- frame for the death checks, listening only while something is watched
+
+-- The death events (health, flags, plates going away) are only needed while a
+-- quest enemy is watched: switched on and off to keep the event traffic low.
+local function Listen(on)
+    if not deathEvents then return end
+    if on and not deathEvents.on then
+        deathEvents:RegisterUnitEvent("UNIT_HEALTH", "target")
+        deathEvents:RegisterEvent("UNIT_FLAGS")
+        deathEvents:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+        deathEvents.on = true
+    elseif not on and deathEvents.on then
+        deathEvents:UnregisterAllEvents()
+        deathEvents.on = false
+    end
+end
 
 local function Remember(unit)
     if not Enabled() then return end
     local guid = Plain(UnitGUID(unit), "string")
-    if not guid or shown[guid] then return end
+    if not guid or shown[guid] or watched[guid] or checked[guid] then return end
     local items = QM:Needs(unit)
-    if items then watched[guid] = { items = items, seen = GetTime() } end
+    if items then
+        watched[guid] = { items = items, seen = GetTime() }
+        Listen(true)
+    else
+        checked[guid] = true
+    end
 end
 
 local function CheckDead(unit)
@@ -259,20 +290,31 @@ local function CheckDead(unit)
     if not (ok and Plain(dead, "boolean")) then return end
     watched[guid] = nil
     shown[guid] = true
+    if not next(watched) then Listen(false) end
     if Opts().questIcon ~= false and not moving and Enabled() then QM:ShowIcons(w.items) end
 end
 
--- Forget enemies seen long ago.
+-- Forget enemies seen long ago (and the "nothing to loot" notes, so they stay small).
 local function Prune()
     local now = GetTime()
     for guid, w in pairs(watched) do
         if now - w.seen > 600 then watched[guid] = nil end
     end
+    if not next(watched) then Listen(false) end
+    wipe(checked)
 end
+
+deathEvents = CreateFrame("Frame")
+deathEvents:SetScript("OnEvent", function(_, _, unit)
+    if type(unit) == "string" and (unit == "target" or unit:find("^nameplate")) then
+        -- Did a watched enemy die?
+        CheckDead(unit)
+    end
+end)
 
 local events = CreateFrame("Frame")
 for _, ev in ipairs({ "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "NAME_PLATE_UNIT_ADDED",
-    "NAME_PLATE_UNIT_REMOVED", "UNIT_HEALTH", "UNIT_FLAGS", "PLAYER_ENTERING_WORLD" }) do
+    "QUEST_LOG_UPDATE", "PLAYER_ENTERING_WORLD" }) do
     pcall(events.RegisterEvent, events, ev)
 end
 events:SetScript("OnEvent", function(_, event, unit)
@@ -283,12 +325,14 @@ events:SetScript("OnEvent", function(_, event, unit)
         Remember("mouseover")
     elseif event == "NAME_PLATE_UNIT_ADDED" then
         Remember(unit)
+    elseif event == "QUEST_LOG_UPDATE" then
+        -- Quests changed: enemies checked before may count now (or no longer).
+        wipe(checked)
     elseif event == "PLAYER_ENTERING_WORLD" then
         wipe(watched)
         wipe(shown)
-    elseif type(unit) == "string" and (unit == "target" or unit == "focus" or unit:find("^nameplate")) then
-        -- UNIT_HEALTH / UNIT_FLAGS / NAME_PLATE_UNIT_REMOVED: did a watched enemy die?
-        if next(watched) then CheckDead(unit) end
+        wipe(checked)
+        Listen(false)
     end
 end)
 C_Timer.NewTicker(60, Prune)
