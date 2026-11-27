@@ -1,5 +1,9 @@
 # Nibbelz Loot
 
+## 1.4.8 (minor)
+
+- Loot icons: the quest item icon and the Undermine Real reminder look the same now: same size, a frame in the addon's accent colour (follows the window style), a gold line on top ("Loot it for your quest" / "Loot your Real!") and a white line with the item or boss.
+
 ## 1.4.7 (minor)
 
 - Undermine Real reminder: now also for the bosses of Blackmaw Hold and Shaper's Terrace (e.g. Blackmaw Behemoth showed "drops no Real" although it gave one).

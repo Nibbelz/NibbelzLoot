@@ -3,7 +3,7 @@
 ## Notes: Live Need/Greed/Pass overview for every group roll, roll history by day and dungeon, gold and AH value won, group stats, fair share and a loot battle. /nl, /rolls
 ## Notes-deDE: Live-Übersicht über Bedarf/Gier/Passen bei jedem Gruppenwurf, Wurf-Historie nach Tag und Dungeon, gewonnenes Gold und AH-Wert, Gruppenstatistik, Fair Share und Loot Battle. /nl, /rolls
 ## Author: Nibbelz
-## Version: 1.4.7
+## Version: 1.4.8
 ## Category: Loot
 ## Category-deDE: Beute
 ## X-License: All Rights Reserved

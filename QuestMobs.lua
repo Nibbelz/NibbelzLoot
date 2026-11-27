@@ -150,9 +150,10 @@ local function CreateHolder()
     end
     -- Shown while moving: a frame and a hint.
     holder.moveBg = holder:CreateTexture(nil, "BACKGROUND")
-    holder.moveBg:SetPoint("TOPLEFT", -6, 6)
-    holder.moveBg:SetPoint("BOTTOMRIGHT", 6, -22)
-    holder.moveBg:SetColorTexture(0.05, 0.82, 0.62, 0.25)
+    holder.moveBg:SetPoint("TOPLEFT", -8, 8)
+    holder.moveBg:SetPoint("BOTTOMRIGHT", 8, -40)
+    local ar, ag, ab = ns.St.Accent()
+    holder.moveBg:SetColorTexture(ar, ag, ab, 0.25)
     holder.moveText = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     holder.moveText:SetPoint("BOTTOM", holder, "TOP", 0, 10)
     holder.moveText:SetText(L["Drag to move"])
@@ -180,12 +181,14 @@ local function Slot(i)
         s.border = s:CreateTexture(nil, "BACKGROUND")
         s.border:SetPoint("TOPLEFT", -2, 2)
         s.border:SetPoint("BOTTOMRIGHT", 2, -2)
-        s.border:SetColorTexture(0.05, 0.82, 0.62, 1)
-        s.text = s:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        s.text:SetPoint("TOP", s, "BOTTOM", 0, -3)
-        s.text:SetWidth(SIZE * 2.4)
+        -- Same look as the Undermine Real reminder (Reals.lua): accent frame,
+        -- a gold line ("Loot it for your quest") and a white line (the item).
+        s.label = s:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        s.label:SetPoint("TOP", s, "BOTTOM", 0, -4)
+        s.text = s:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        s.text:SetPoint("TOP", s.label, "BOTTOM", 0, -2)
+        s.text:SetWidth(SIZE * 3)
         s.text:SetWordWrap(true)
-        s.text:SetTextColor(1, 1, 1, 1)
         slots[i] = s
     end
     return s
@@ -199,8 +202,10 @@ function QM:ShowIcons(items, keep)
     for i, name in ipairs(items) do
         local s = Slot(i)
         s:ClearAllPoints()
-        s:SetPoint("CENTER", holder, "CENTER", (i - (n + 1) / 2) * (SIZE + 14), 0)
+        s:SetPoint("CENTER", holder, "CENTER", (i - (n + 1) / 2) * (SIZE * 3 + 10), 0)
         s.icon:SetTexture(ItemIcon(name))
+        s.border:SetColorTexture(ns.St.Accent())
+        s.label:SetText(L["Loot it for your quest"])
         s.text:SetText(name)
         s:Show()
     end
