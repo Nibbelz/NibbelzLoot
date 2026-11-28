@@ -14,6 +14,9 @@ local SHOW_MAX = 4   -- versions shown at most (the newest first)
 
 -- Newest first. Keep each line short: what changed, and where / how to use it.
 local NOTES = {
+    { "1.6.2",
+        en = { "Options > General: Gold per dungeon sits next to the style, AH prices have their own row." },
+        de = { "Optionen > Allgemein: Gold pro Dungeon steht neben dem Stil, AH-Preise haben eine eigene Zeile." } },
     { "1.6.1",
         en = { "Options: the category Others is gone. AH prices, window style and Gold per dungeon are now under General." },
         de = { "Optionen: Die Kategorie Sonstiges ist weg. AH-Preise, Fensterstil und Gold pro Dungeon stehen jetzt unter Allgemein." } },

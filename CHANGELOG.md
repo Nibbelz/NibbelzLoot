@@ -1,5 +1,9 @@
 # Nibbelz Loot
 
+## 1.6.2 (minor)
+
+- Options > General: "Gold per dungeon in chat" now sits next to the style, and "AH prices" has its own row with its note right below it.
+
 ## 1.6.1 (minor)
 
 - Options: the category "Others" is removed. Its settings (AH prices, window style, Gold per dungeon in chat) are now in "General" at the top, together with the minimap button.

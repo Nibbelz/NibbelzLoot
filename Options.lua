@@ -220,8 +220,6 @@ local function Build()
         end
         return items
     end)
-    Row({ controls.ahSource, controls.style })
-    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
     -- Gold per dungeon in chat: all of them with the total, or one dungeon on its own.
     local goldMenu = St.Dropdown(body, COL_W, 22, function() return L["Gold per dungeon in chat"] end, function()
         local items = { { L["All dungeons + total"], function() ns.PrintGold() end } }
@@ -233,7 +231,10 @@ local function Build()
         end
         return items
     end)
-    Row({ goldMenu }, 2)
+    Row({ goldMenu, controls.style })
+    -- AH prices on their own row, with their note right below.
+    Row({ controls.ahSource }, 2)
+    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
     EndSection()
 
     -- Loot roll window
