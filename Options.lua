@@ -171,6 +171,69 @@ local function Build()
         ns.Minimap:SetShown(on)
     end)
     Full(controls.minimap, 26)
+    -- AH prices, window style and gold per dungeon (formerly the "Others" category).
+    local function SourceLabel(key)
+        for _, src in ipairs(ns.AH_SOURCES) do
+            if src.key == key then return src.label end
+        end
+        return L["Automatic"]
+    end
+    controls.ahSource = St.Dropdown(body, COL_W, 22, function()
+        return L["AH prices: "] .. SourceLabel(ns.db.opts.ahSource or "auto")
+    end, function()
+        local cur = ns.db.opts.ahSource or "auto"
+        local function Pick(key)
+            return function()
+                ns.db.opts.ahSource = key
+                ns.ResetAHMisses()
+                controls.ahSource:Update()
+                ns.Notify()
+            end
+        end
+        local items = { { L["Automatic"], Pick("auto"), nil, cur == "auto" } }
+        for _, src in ipairs(ns.AH_SOURCES) do
+            local text = src.label
+            if not src.available() then text = "|cff777777" .. text .. " (" .. L["not installed"] .. ")|r" end
+            items[#items + 1] = { text, Pick(src.key), nil, cur == src.key }
+        end
+        return items
+    end)
+    -- A new style needs a UI reload.
+    local function StyleLabel(key)
+        for _, t in ipairs(St.THEMES) do
+            if t.key == key then return L[t.label] end
+        end
+        return L[St.THEMES[1].label]
+    end
+    controls.style = St.Dropdown(body, COL_W, 22, function()
+        return L["Style: "] .. StyleLabel(ns.db.opts.theme)
+    end, function()
+        local items = {}
+        for _, t in ipairs(St.THEMES) do
+            local key = t.key
+            items[#items + 1] = { L[t.label], function()
+                if ns.db.opts.theme == key then return end
+                ns.db.opts.theme = key
+                controls.style:Update()
+                St.ReloadPrompt(L["The new window style is used after a UI reload. Reload now?"])
+            end, nil, key == ns.db.opts.theme }
+        end
+        return items
+    end)
+    Row({ controls.ahSource, controls.style })
+    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
+    -- Gold per dungeon in chat: all of them with the total, or one dungeon on its own.
+    local goldMenu = St.Dropdown(body, COL_W, 22, function() return L["Gold per dungeon in chat"] end, function()
+        local items = { { L["All dungeons + total"], function() ns.PrintGold() end } }
+        local places = ns.GoldByPlace(ns.db.rolls)
+        table.sort(places, function(a, b) return a.place < b.place end)
+        for _, p in ipairs(places) do
+            local place = p.place
+            items[#items + 1] = { place, function() ns.PrintGoldPlace(place) end }
+        end
+        return items
+    end)
+    Row({ goldMenu }, 2)
     EndSection()
 
     -- Loot roll window
@@ -334,72 +397,6 @@ local function Build()
     Row({ Btn(L["Loot battle"], function() ns.Battle:Command() end),
         Btn(L["Battle history"], function() ns.BattleHistory:Toggle() end) })
     Row({ clearBattles }, 2)
-    EndSection()
-
-    -- Others: where the AH value comes from, and the window style (side by side).
-    Section("others", L["OTHERS"])
-    local function SourceLabel(key)
-        for _, src in ipairs(ns.AH_SOURCES) do
-            if src.key == key then return src.label end
-        end
-        return L["Automatic"]
-    end
-    controls.ahSource = St.Dropdown(body, COL_W, 22, function()
-        return L["AH prices: "] .. SourceLabel(ns.db.opts.ahSource or "auto")
-    end, function()
-        local cur = ns.db.opts.ahSource or "auto"
-        local function Pick(key)
-            return function()
-                ns.db.opts.ahSource = key
-                ns.ResetAHMisses()
-                controls.ahSource:Update()
-                ns.Notify()
-            end
-        end
-        local items = { { L["Automatic"], Pick("auto"), nil, cur == "auto" } }
-        for _, src in ipairs(ns.AH_SOURCES) do
-            local text = src.label
-            if not src.available() then text = "|cff777777" .. text .. " (" .. L["not installed"] .. ")|r" end
-            items[#items + 1] = { text, Pick(src.key), nil, cur == src.key }
-        end
-        return items
-    end)
-    -- A new style needs a UI reload.
-    local function StyleLabel(key)
-        for _, t in ipairs(St.THEMES) do
-            if t.key == key then return L[t.label] end
-        end
-        return L[St.THEMES[1].label]
-    end
-    controls.style = St.Dropdown(body, COL_W, 22, function()
-        return L["Style: "] .. StyleLabel(ns.db.opts.theme)
-    end, function()
-        local items = {}
-        for _, t in ipairs(St.THEMES) do
-            local key = t.key
-            items[#items + 1] = { L[t.label], function()
-                if ns.db.opts.theme == key then return end
-                ns.db.opts.theme = key
-                controls.style:Update()
-                St.ReloadPrompt(L["The new window style is used after a UI reload. Reload now?"])
-            end, nil, key == ns.db.opts.theme }
-        end
-        return items
-    end)
-    Row({ controls.ahSource, controls.style })
-    Note(L["AH prices are taken when an item drops. Older items without a price look it up once."], 34)
-    -- Gold per dungeon in chat: all of them with the total, or one dungeon on its own.
-    local goldMenu = St.Dropdown(body, COL_W, 22, function() return L["Gold per dungeon in chat"] end, function()
-        local items = { { L["All dungeons + total"], function() ns.PrintGold() end } }
-        local places = ns.GoldByPlace(ns.db.rolls)
-        table.sort(places, function(a, b) return a.place < b.place end)
-        for _, p in ipairs(places) do
-            local place = p.place
-            items[#items + 1] = { place, function() ns.PrintGoldPlace(place) end }
-        end
-        return items
-    end)
-    Row({ goldMenu }, 2)
     EndSection()
 
     local hint = St.Text(content, 10)

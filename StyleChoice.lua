@@ -1,7 +1,7 @@
 -- StyleChoice.lua: on the very first start after installing, a window asks which
 -- look you want: the Nibbelz style or the Classic style (the WoW Forever UI).
 -- Core.lua sets opts.chooseStyle on a fresh install; the choice clears it.
--- The style can be changed later in Options > Others.
+-- The style can be changed later in Options > General.
 local _, ns = ...
 local St, L = ns.St, ns.L
 
@@ -99,7 +99,7 @@ local function Build()
     intro:SetPoint("TOPLEFT", 14, -38)
     intro:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
     intro:SetWordWrap(true)
-    intro:SetText(L["Welcome to Nibbelz Loot! Which look do you want? You can change it any time in Options > Others."])
+    intro:SetText(L["Welcome to Nibbelz Loot! Which look do you want? You can change it any time in Options > General."])
     intro:SetTextColor(1, 1, 1, 0.85)
     Card("nibbelz", "Nibbelz", L["Modern and flat: dark panels, turquoise accents, switches."], false, 14)
     Card("classic", L["Classic"], L["Like the WoW Forever interface: red buttons, gold text, bronze lines."], true, 256)

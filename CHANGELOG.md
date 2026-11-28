@@ -1,5 +1,9 @@
 # Nibbelz Loot
 
+## 1.6.1 (minor)
+
+- Options: the category "Others" is removed. Its settings (AH prices, window style, Gold per dungeon in chat) are now in "General" at the top, together with the minimap button.
+
 ## 1.6.0 (minor)
 
 - Classic style reworked to look like the WoW Forever interface: windows in the game menu's dialog frame (dark, metal corners), the game's red buttons with gold text (white on hover), gold titles and section headers over bronze lines like the quest tracker, Blizzard check boxes and the game's slider knob.
